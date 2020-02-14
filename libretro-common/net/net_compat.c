@@ -142,6 +142,64 @@ struct hostent *gethostbyname(const char *name)
 }
 
 int retro_epoll_fd;
+#elif defined(ORBIS)
+static int s_libnet_mem_id = -1;
+#define COMPAT_NET_INIT_SIZE 512*1024
+#define INET_ADDRSTRLEN sizeof(struct sockaddr_in)
+#define MAX_NAME 512
+
+char *inet_ntoa(struct SceNetInAddr in)
+{
+	static char ip_addr[INET_ADDRSTRLEN + 1];
+
+   if (!inet_ntop_compat(AF_INET, &in, ip_addr, INET_ADDRSTRLEN))
+		strlcpy(ip_addr, "Invalid", sizeof(ip_addr));
+
+	return ip_addr;
+}
+
+struct SceNetInAddr inet_aton(const char *ip_addr)
+{
+   SceNetInAddr inaddr;
+
+   inet_ptrton(AF_INET, ip_addr, &inaddr);
+   return inaddr;
+}
+
+unsigned int inet_addr(const char *cp)
+{
+   return inet_aton(cp).s_addr;
+}
+
+struct hostent *gethostbyname(const char *name)
+{
+   int err;
+   static struct hostent ent;
+   static char sname[MAX_NAME]      = {0};
+   static struct SceNetInAddr saddr = {0};
+   static char *addrlist[2]         = {(char *) &saddr, NULL };
+   int rid = sceNetResolverCreate("resolver", s_libnet_mem_id, 0);
+
+   if(rid < 0)
+      return NULL;
+
+   err = sceNetResolverStartNtoa(rid, name, &saddr, 0,0,0);
+   sceNetResolverDestroy(rid);
+   if(err < 0)
+      return NULL;
+
+   addrlist[0]     = inet_ntoa(saddr);
+   ent.h_name      = sname;
+   ent.h_aliases   = 0;
+   ent.h_addrtype  = AF_INET;
+   ent.h_length    = sizeof(struct in_addr);
+   ent.h_addr_list = addrlist;
+   ent.h_addr      = addrlist[0];
+
+   return &ent;
+}
+
+int retro_epoll_fd;
 #elif defined(_3DS)
 #include <malloc.h>
 #include <3ds/types.h>
@@ -228,7 +286,7 @@ int getaddrinfo_retro(const char *node, const char *service,
 
       in_addr->sin_family = host->h_addrtype;
 
-#if defined(AF_INET6) && !defined(__CELLOS_LV2__) || defined(VITA)
+#if defined(AF_INET6) && !defined(__CELLOS_LV2__) || defined(VITA) || defined(ORBIS)
       /* TODO/FIXME - In case we ever want to support IPv6 */
       in_addr->sin_addr.s_addr = inet_addr(host->h_addr_list[0]);
 #else
@@ -326,6 +384,19 @@ bool network_init(void)
    }
 
    retro_epoll_fd = sceNetEpollCreate("epoll", 0);
+#elif defined(ORBIS)
+   if (sceNetShowNetstat() == SCE_NET_ERROR_ENOTINIT)
+   {
+      sceNetInit();
+      sceNetCtlInit();
+   }
+
+   if (s_libnet_mem_id < 0)
+   {
+	  s_libnet_mem_id = sceNetPoolCreate("retroarch_net_pool", COMPAT_NET_INIT_SIZE, 0);
+   }
+
+   retro_epoll_fd = sceNetEpollCreate("epoll", 0);
 #elif defined(GEKKO)
    char t[16];
    if (if_config(t, NULL, NULL, TRUE, 10) < 0)
@@ -368,6 +439,14 @@ void network_deinit(void)
    {
       free(_net_compat_net_memory);
       _net_compat_net_memory = NULL;
+   }
+#elif defined(ORBIS)
+   sceNetCtlTerm();
+   sceNetTerm();
+   if(s_libnet_mem_id)
+   {
+	   sceNetPoolDestroy(s_libnet_mem_id);
+     s_libnet_mem_id = -1;
    }
 #elif defined(GEKKO) && !defined(HW_DOL)
    net_deinit();

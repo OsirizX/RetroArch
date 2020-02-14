@@ -80,6 +80,9 @@ static frontend_ctx_driver_t *frontend_ctx_drivers[] = {
 #elif defined(__CELLOS_LV2__)
    &frontend_ctx_ps3,
 #endif
+#if defined(ORBIS)
+   &frontend_ctx_orbis,
+#endif
 #if defined(_XBOX)
    &frontend_ctx_xdk,
 #endif
@@ -124,9 +127,6 @@ static frontend_ctx_driver_t *frontend_ctx_drivers[] = {
 #endif
 #ifdef SWITCH
    &frontend_ctx_switch,
-#endif
-#if defined(ORBIS)
-   &frontend_ctx_orbis,
 #endif
    &frontend_ctx_null,
    NULL
@@ -189,6 +189,9 @@ bool frontend_driver_get_core_extension(char *s, size_t len)
 #if defined(__CELLOS_LV2__)
    strlcpy(s, "self|bin", len);
    return true;
+#elif defined(ORBIS)
+   strlcpy(s, "self|bin", len);
+   return true;
 #elif defined(PSP)
    strlcpy(s, "pbp", len);
    return true;
@@ -237,6 +240,9 @@ bool frontend_driver_get_salamander_basename(char *s, size_t len)
 
 #if defined(__CELLOS_LV2__)
    strlcpy(s, "EBOOT.BIN", len);
+   return true;
+#elif defined(ORBIS)
+   strlcpy(s, "eboot.bin", len);
    return true;
 #elif defined(PSP)
    strlcpy(s, "EBOOT.PBP", len);

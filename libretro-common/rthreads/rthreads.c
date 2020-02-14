@@ -223,7 +223,7 @@ sthread_t *sthread_create_with_priority(void (*thread_func)(void*), void *userda
    }
 #endif
 
-#if defined(VITA)
+#if defined(VITA) || defined(ORBIS)
    pthread_attr_setstacksize(&thread_attr , 0x10000 );
    thread_attr_needed = true;
 #endif
@@ -875,7 +875,7 @@ bool scond_wait_timeout(scond_t *cond, slock_t *lock, int64_t timeout_us)
    int tickms = clock();
    now.tv_sec = tickms/1000;
    now.tv_nsec = tickms * 1000;
-#elif defined(__mips__) || defined(VITA) || defined(_3DS)
+#elif defined(__mips__) || defined(VITA) || defined(_3DS) || defined(ORBIS)
    struct timeval tm;
 
    gettimeofday(&tm, NULL);

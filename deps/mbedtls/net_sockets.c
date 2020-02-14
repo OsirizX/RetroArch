@@ -106,6 +106,13 @@ static int wsa_init_done = 0;
 
 #include <stdint.h>
 
+#if defined(ORBIS)
+#include <net/net_compat.h>
+#define read(fd,buf,len)        sceNetRecv(fd,(char*)buf,(int) len,0)
+#define write(fd,buf,len)       sceNetSend(fd,(char*)buf,(int) len,0)
+#define close(fd)               sceNetSocketClose(fd)
+#endif
+
 /*
  * Prepare for using the sockets interface
  */
@@ -401,6 +408,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
 
             memcpy( client_ip, &addr4->sin_addr.s_addr, *ip_len );
         }
+#if defined(AF_INET6) && !defined(HAVE_SOCKET_LEGACY)
         else
         {
             struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) &client_addr;
@@ -411,6 +419,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
 
             memcpy( client_ip, &addr6->sin6_addr.s6_addr, *ip_len);
         }
+#endif
     }
 
     return( 0 );
@@ -421,7 +430,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
  */
 int mbedtls_net_set_block( mbedtls_net_context *ctx )
 {
-#if defined(__CELLOS_LV2__) || defined(VITA) || defined(WIIU)
+#if defined(__CELLOS_LV2__) || defined(VITA) || defined(WIIU) || defined(ORBIS)
    int i = 0;
    setsockopt(ctx->fd, SOL_SOCKET, SO_NBIO, &i, sizeof(int));
    return 1;
@@ -436,7 +445,7 @@ int mbedtls_net_set_block( mbedtls_net_context *ctx )
 
 int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
 {
-#if defined(__CELLOS_LV2__) || defined(VITA) || defined(WIIU)
+#if defined(__CELLOS_LV2__) || defined(VITA) || defined(WIIU) || defined(ORBIS)
    int i = 1;
    setsockopt(ctx->fd, SOL_SOCKET, SO_NBIO, &i, sizeof(int));
    return 1;
@@ -527,7 +536,7 @@ int mbedtls_net_recv_timeout( void *ctx, unsigned char *buf, size_t len,
 
 #if defined(__CELLOS_LV2__)
     ret = socketselect(fd + 1, &read_fds, NULL, NULL, timeout == 0 ? NULL : &tv);
-#elif defined(VITA)
+#elif defined(VITA) || defined(ORBIS)
    extern int retro_epoll_fd;
    SceNetEpollEvent ev = {0};
 
@@ -536,8 +545,10 @@ int mbedtls_net_recv_timeout( void *ctx, unsigned char *buf, size_t len,
 
    if((sceNetEpollControl(retro_epoll_fd, SCE_NET_EPOLL_CTL_ADD, fd + 1, &ev)))
    {
-      int ret = sceNetEpollWait(retro_epoll_fd, &ev, 1, 0);
+      int timeout_us = tv.tv_sec * 1e6;
+      ret = sceNetEpollWait(retro_epoll_fd, &ev, 1, timeout_us <= 0 ? 0 : timeout_us);
       sceNetEpollControl(retro_epoll_fd, SCE_NET_EPOLL_CTL_DEL, fd + 1, NULL);
+   }
 #else
     ret = select( fd + 1, &read_fds, NULL, NULL, timeout == 0 ? NULL : &tv );
 #endif

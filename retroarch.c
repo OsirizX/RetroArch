@@ -2494,7 +2494,11 @@ void dir_check_defaults(void)
       so it doesn't create unnecessary directories
     */
 #if defined(ORBIS) || defined(ANDROID)
+#if defined(HAVE_LIBORBIS)
    if (path_is_valid("host0:app/custom.ini"))
+#else
+   if (path_is_valid("/data/custom.ini"))
+#endif
 #elif defined(__WINRT__)
    char path[MAX_PATH];
    fill_pathname_expand_special(path, "~\\custom.ini", MAX_PATH);
@@ -8151,7 +8155,7 @@ int rarch_main(int argc, char *argv[], void *data)
 
    ui_companion_driver_init_first();
 
-#if !defined(HAVE_MAIN) || defined(HAVE_QT)
+#if !defined(HAVE_MAIN) || defined(HAVE_QT) || defined(ORBIS)
    for (;;)
    {
       int ret;
@@ -24675,7 +24679,7 @@ static void retroarch_parse_input_and_config(int argc, char *argv[])
    optstring = "hs:fvS:A:U:DN:d:"
       BSV_MOVIE_ARG NETPLAY_ARG DYNAMIC_ARG FFMPEG_RECORD_ARG CONFIG_FILE_ARG;
 
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
    argv      = &(argv[2]);
    argc      = argc - 2;
 #endif
@@ -28720,7 +28724,7 @@ static bool accessibility_speak_windows(int speed,
 }
 #endif
 
-#if (defined(__linux__) || defined(__unix__)) && !defined(EMSCRIPTEN)
+#if (defined(__linux__) || defined(__unix__)) && !defined(EMSCRIPTEN) && !defined(ORBIS)
 static bool is_narrator_running_linux(void)
 {
    return (kill(speak_pid, 0) == 0);
@@ -28800,7 +28804,7 @@ bool accessibility_speak_priority(const char* speak_text, int priority)
 #elif defined(__APPLE__) && defined(_IS_OSX) && !defined(EMSCRIPTEN)
       const char *voice = get_user_language_iso639_1(false);
       return accessibility_speak_macos(speed, speak_text, voice, priority);
-#elif (defined(__linux__) || defined(__unix__)) && !defined(EMSCRIPTEN)
+#elif (defined(__linux__) || defined(__unix__)) && !defined(EMSCRIPTEN) && !defined(ORBIS)
       const char *voice = get_user_language_iso639_1(true);
       return accessibility_speak_linux(speed, speak_text, voice, priority);
 #endif
@@ -28830,7 +28834,7 @@ static bool is_narrator_running(void)
       return is_narrator_running_windows();
 #elif defined(__APPLE__) && defined(_IS_OSX) && !defined(EMSCRIPTEN)
       return is_narrator_running_macos();
-#elif (defined(__linux__) || defined(__unix__)) && !defined(EMSCRIPTEN)
+#elif (defined(__linux__) || defined(__unix__)) && !defined(EMSCRIPTEN) && !defined(ORBIS)
       return is_narrator_running_linux();
 #endif
    }

@@ -34,9 +34,14 @@
 #elif defined(_XBOX)
 #include <xtl.h>
 #endif
-#ifdef ORBIS
+#if defined(ORBIS)
 #include <sys/fcntl.h>
+#if defined(HAVE_LIBORBIS)
 #include <orbisFile.h>
+#endif
+#if defined(HAVE_TAUON_SDK)
+#include <kernel_ex.h>
+#endif
 #endif
 #include <retro_miscellaneous.h>
 #include <compat/strl.h>
@@ -300,7 +305,7 @@ static void add_sub_conf(config_file_t *conf, char *path, config_file_cb_t *cb)
       fill_pathname_resolve_relative(real_path, conf->path,
             path, sizeof(real_path));
 #else
-#ifndef __CELLOS_LV2__
+#if !defined(__CELLOS_LV2__) && !defined(ORBIS)
    if (*path == '~')
    {
       const char *home = getenv("HOME");
@@ -1005,12 +1010,20 @@ bool config_file_write(config_file_t *conf, const char *path, bool sort)
 {
    if (!string_is_empty(path))
    {
-#ifdef ORBIS
+#if defined(ORBIS) && !defined(USE_POSIX)
+#if defined(HAVE_LIBORBIS)
       int fd     = orbisOpen(path,O_RDWR|O_CREAT,0644);
       if (fd < 0)
          return false;
       config_file_dump_orbis(conf,fd);
       orbisClose(fd);
+#else
+      int fd     = sceKernelOpen(path,O_RDWR|O_CREAT,0777);
+      if (fd < 0)
+        return false;
+      config_file_dump_orbis(conf,fd);
+      sceKernelClose(fd);
+#endif
 #else
       void* buf  = NULL;
       FILE *file = (FILE*)fopen_utf8(path, "wb");
@@ -1037,7 +1050,7 @@ bool config_file_write(config_file_t *conf, const char *path, bool sort)
    return true;
 }
 
-#ifdef ORBIS
+#if defined(ORBIS)
 void config_file_dump_orbis(config_file_t *conf, int fd)
 {
    struct config_entry_list       *list = NULL;
@@ -1046,7 +1059,11 @@ void config_file_dump_orbis(config_file_t *conf, int fd)
    {
       char cad[256];
       sprintf(cad,"#include %s\n", includes->path);
+#if defined(HAVE_LIBORBIS)
       orbisWrite(fd, cad, strlen(cad));
+#else
+      sceKernelWrite(fd, cad, strlen(cad));
+#endif
       includes = includes->next;
    }
 
@@ -1059,7 +1076,11 @@ void config_file_dump_orbis(config_file_t *conf, int fd)
       {
          char newlist[256];
          sprintf(newlist,"%s = %s\n", list->key, list->value);
+#if defined(HAVE_LIBORBIS)
          orbisWrite(fd, newlist, strlen(newlist));
+#else
+         sceKernelWrite(fd, newlist, strlen(newlist));
+#endif
       }
       list = list->next;
    }

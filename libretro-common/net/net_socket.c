@@ -125,7 +125,7 @@ int socket_receive_all_blocking(int fd, void *data_, size_t size)
 
 bool socket_nonblock(int fd)
 {
-#if defined(__CELLOS_LV2__) || defined(VITA) || defined(WIIU)
+#if defined(__CELLOS_LV2__) || defined(VITA) || defined(WIIU) || defined(ORBIS)
    int i = 1;
    setsockopt(fd, SOL_SOCKET, SO_NBIO, &i, sizeof(int));
    return true;
@@ -144,7 +144,7 @@ int socket_close(int fd)
    return closesocket(fd);
 #elif defined(__CELLOS_LV2__) || defined(WIIU)
    return socketclose(fd);
-#elif defined(VITA)
+#elif defined(VITA) || defined(ORBIS)
    return sceNetSocketClose(fd);
 #else
    return close(fd);
@@ -156,7 +156,7 @@ int socket_select(int nfds, fd_set *readfs, fd_set *writefds,
 {
 #if defined(__CELLOS_LV2__)
    return socketselect(nfds, readfs, writefds, errorfds, timeout);
-#elif defined(VITA)
+#elif defined(VITA) || defined(ORBIS)
    extern int retro_epoll_fd;
    SceNetEpollEvent ev = {0};
 
@@ -261,7 +261,7 @@ static int domain_get(enum socket_domain type)
    switch (type)
    {
       case SOCKET_DOMAIN_INET:
-#ifdef VITA
+#if defined(VITA) || defined(ORBIS)
          return SCE_NET_AF_INET;
 #else
          return AF_INET;
@@ -282,7 +282,7 @@ int socket_create(
    int type     = 0;
    int protocol = 0;
    int domain   = domain_get(domain_type);
-#ifdef VITA
+#if defined(VITA) || defined(ORBIS)
 
    switch (socket_type)
    {
@@ -348,7 +348,7 @@ void socket_set_target(void *data, socket_target_t *in_addr)
 
    out_target->sin_port   = inet_htons(in_addr->port);
    out_target->sin_family = domain_get(in_addr->domain);
-#ifdef VITA
+#if defined(VITA) || defined(ORBIS)
    out_target->sin_addr   = inet_aton(in_addr->server);
 #else
 #ifdef GEKKO

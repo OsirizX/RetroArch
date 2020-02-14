@@ -77,6 +77,14 @@
 #include <sys/sys_time.h>
 #endif
 
+#if defined(ORBIS)
+#if defined(HAVE_TAUON_SDK)
+#include <kernel_ex.h>
+#else
+#include <kernel.h>
+#endif
+#endif
+
 #ifdef GEKKO
 #include <ogc/lwp_watchdog.h>
 #endif
@@ -189,6 +197,8 @@ retro_perf_tick_t cpu_features_get_perf_counter(void)
    sceRtcGetCurrentTick((uint64_t*)&time_ticks);
 #elif defined(VITA)
    sceRtcGetCurrentTick((SceRtcTick*)&time_ticks);
+#elif defined(ORBIS)
+   sceRtcGetCurrentTick((SceRtcTick*)&time_ticks);
 #elif defined(PS2)
    time_ticks = clock()*294912; // 294,912MHZ / 1000 msecs
 #elif defined(_3DS)
@@ -251,6 +261,8 @@ retro_time_t cpu_features_get_time_usec(void)
    return osGetTime() * 1000;
 #elif defined(VITA)
    return sceKernelGetProcessTimeWide();
+#elif defined(ORBIS)
+   return sceKernelGetProcessTime();
 #else
 #error "Your platform does not have a timer function implemented in cpu_features_get_time_usec(). Cannot continue."
 #endif
@@ -496,6 +508,8 @@ unsigned cpu_features_get_core_amount(void)
    return 1;
 #elif defined(VITA)
    return 4;
+#elif defined(ORBIS)
+   return 8;
 #elif defined(HAVE_LIBNX) || defined(SWITCH)
    return 4;
 #elif defined(_3DS)

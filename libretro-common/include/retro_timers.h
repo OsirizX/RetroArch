@@ -27,6 +27,12 @@
 
 #if defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
 #include <sys/timer.h>
+#elif defined(ORBIS)
+#if defined(HAVE_TAUON_SDK)
+#include <kernel_ex.h>
+#else
+#include <kernel.h>
+#endif
 #elif defined(XENON)
 #include <time/time.h>
 #elif defined(GEKKO) || defined(__PSL1GHT__) || defined(__QNX__)
@@ -89,6 +95,8 @@ static INLINE void retro_sleep(unsigned msec)
 {
 #if defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
    sys_timer_usleep(1000 * msec);
+#elif defined(ORBIS)
+   sceKernelUsleep(1000 * msec);
 #elif defined(PSP) || defined(VITA)
    sceKernelDelayThread(1000 * msec);
 #elif defined(PS2)

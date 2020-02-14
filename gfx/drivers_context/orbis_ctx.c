@@ -15,7 +15,7 @@
  */
 
 #include <stdlib.h>
-
+#include <string/stdstring.h>
 #include <compat/strl.h>
 
 #ifdef HAVE_CONFIG_H

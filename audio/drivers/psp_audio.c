@@ -141,6 +141,7 @@ static void *psp_audio_init(const char *device,
    (void)latency;
 
 #ifdef ORBIS
+   sceAudioOutInit();
    psp->buffer      = (uint32_t*)
       malloc(AUDIO_BUFFER_SIZE * sizeof(uint32_t));
 #else

@@ -22,10 +22,17 @@
 
 #include <file/nbio.h>
 
-#if defined(ORBIS)
+#if defined(ORBIS) && defined(USE_NBIO_ORBIS)
 #include <stdio.h>
 #include <stdlib.h>
+#if defined(HAVE_LIBORBIS)
 #include <orbisFile.h>
+#endif
+#if defined(HAVE_TAUON_SDK)
+#include <kernel_ex.h>
+#else
+#include <kernel.h>
+#endif
 #include <unistd.h>
 #include <sys/fcntl.h>
 

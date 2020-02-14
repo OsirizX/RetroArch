@@ -71,6 +71,9 @@ extern const struct rarch_key_map rarch_key_map_switch[];
 #ifdef VITA
 extern const struct rarch_key_map rarch_key_map_vita[];
 #endif
+#ifdef ORBIS
+extern const struct rarch_key_map rarch_key_map_ps4[];
+#endif
 
 /**
  * input_keymaps_init_keyboard_lut:
