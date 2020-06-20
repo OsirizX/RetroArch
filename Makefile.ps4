@@ -1,0 +1,201 @@
+TARGET		    := retroarch_ps4
+DEBUG               ?= 0
+GRIFFIN_BUILD        = 0
+WHOLE_ARCHIVE_LINK   = 0
+
+HAVE_STATIC_DUMMY ?= 0
+HAVE_GLES3 ?= 1
+HAVE_MOUSE ?= 0
+HAVE_KEYBOARD ?= 0
+
+PS4_TITLE_ID	:= RETROARCH
+PS4_TITLE_NAME	:= RetroArch
+
+PC_DEVELOPMENT_IP_ADDRESS  =
+PC_DEVELOPMENT_UDP_PORT	   =
+
+OBJ :=
+DEFINES :=
+
+OBJ += memory/ps4/user_mem.o \
+			memory/ps4/user_new.o \
+			input/drivers/ps4_input.o \
+			input/drivers_joypad/ps4_joypad.o \
+			audio/drivers/psp_audio.o \
+			gfx/drivers_context/orbis_ctx.o \
+			frontend/drivers/platform_orbis.o
+
+ifeq ($(HAVE_GLES3),1)
+  DEFINES += -DHAVE_OPENGLES3
+endif
+
+ifeq ($(HAVE_STATIC_DUMMY),1)
+  DEFINES += -DHAVE_STATIC_DUMMY
+endif
+
+ifeq ($(GRIFFIN_BUILD), 1)
+	OBJ += griffin/griffin.o
+	DEFINES += -DHAVE_GRIFFIN=1
+	DEFINES += -DHAVE_MENU -DHAVE_LIBRETRODB -DHAVE_CONFIGFILE
+	DEFINES += -DHAVE_ZLIB -DHAVE_RPNG -DHAVE_RJPEG -DHAVE_RBMP -DHAVE_RTGA -DHAVE_CC_RESAMPLER
+	ifeq ($(DEBUG), 1)
+		DEFINES += -DHAVE_NETLOGGER
+	endif
+else
+
+	HAVE_FILTERS_BUILTIN	:= 1
+	HAVE_LANGEXTRA				:= 1
+	HAVE_IMAGEVIEWER 			:= 1
+	HAVE_RPNG							:= 1
+	HAVE_RJPEG						:= 1
+	HAVE_RBMP							:= 1
+	HAVE_RTGA							:= 1
+	HAVE_ZLIB							:= 1
+	HAVE_BUILTINZLIB			:= 1
+	HAVE_OVERLAY					:= 1
+	HAVE_VIDEO_LAYOUT 		:= 1
+	HAVE_7ZIP							:= 1
+	HAVE_EGL 							:= 1
+	HAVE_GFX_WIDGETS 			:= 1
+	HAVE_GLSL      				:= 1
+	HAVE_SHADERPIPELINE  	:= 1
+	HAVE_OPENGL  					:= 1
+	HAVE_OPENGLES  				:= 1
+	HAVE_OPENGLES2  			:= 1
+	HAVE_NETWORKING				:= 1
+	HAVE_SOCKET_LEGACY		:= 1
+	HAVE_MENU							:= 1
+	HAVE_MENU_COMMON			:= 1
+	HAVE_RGUI							:= 1
+	HAVE_STB_FONT					:= 1
+	HAVE_STB_VORBIS				:= 1
+	HAVE_DR_FLAC					:= 1
+	HAVE_DR_MP3						:= 1
+	HAVE_MATERIALUI 			:= 1
+	HAVE_XMB							:= 1
+	HAVE_OZONE						:= 1
+	HAVE_RGUI							:= 1
+	HAVE_THREADS					:= 1
+	HAVE_THREAD_ATTR			:= 1
+	HAVE_LIBRETRODB				:= 1
+	HAVE_CC_RESAMPLER			:= 1
+	HAVE_CHEEVOS					:= 1
+	HAVE_RUNAHEAD					:= 1
+	RARCH_CONSOLE					:= 1
+	HAVE_MAIN 						:= 1
+	HAVE_ONLINE_UPDATER 	:= 1
+	HAVE_COMPRESSION 			:= 1
+	HAVE_UPDATE_ASSETS 		:= 1
+	HAVE_UPDATE_CORES 		:= 1
+	HAVE_CONFIGFILE 			:= 1
+	HAVE_CHD 							:= 1
+	HAVE_STATIC_VIDEO_FILTERS = 1
+	HAVE_STATIC_AUDIO_FILTERS = 1
+
+	ifeq ($(DEBUG), 1)
+		HAVE_NETLOGGER = 1
+	endif
+
+	include Makefile.common
+	CFLAGS += $(DEF_FLAGS)
+	BLACKLIST := libretro-common/file/nbio/nbio_orbis.o
+	OBJ := $(filter-out $(BLACKLIST),$(OBJ))
+endif
+
+ifeq ($(strip $(OO_PS4_TOOLCHAIN)),)
+$(error "Please set OO_PS4_TOOLCHAIN in your environment. export OO_PS4_TOOLCHAIN=<path to>oosdk")
+endif
+
+PREFIX :=
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+  CDIR	:= linux
+endif
+ifeq ($(UNAME_S),Darwin)
+  PREFIX := /usr/local/opt/llvm/bin/
+  CDIR	:= macos
+endif
+
+CC      := $(PREFIX)clang
+CXX     := $(PREFIX)clang
+AS      := $(PREFIX)clang
+AR      := $(PREFIX)ar
+OBJCOPY := $(PREFIX)objcopy
+STRIP   := $(PREFIX)strip
+NM      := $(PREFIX)nm
+LD      := $(PREFIX)ld.lld
+
+LIBDIRS += -L. -Lcores -Lmemory/ps4 -Lbuild
+INCDIRS += -I. -Idefines -Imemory/ps4 -Ideps -Ideps/7zip -Ideps/libz -Ilibretro-common/include -Ideps/stb \
+					 -Ilibretro-common/include/compat/zlib -Ideps/rcheevos/include
+
+ARCHFLAGS += -DORBIS -D__ORBIS__ -DHAVE_OOSDK
+DEFINES += -DHAVE_MAIN -DRARCH_INTERNAL -DRARCH_CONSOLE -DHAVE_FILTERS_BUILTIN \
+					 -DHAVE_XMB -DHAVE_RGUI -DHAVE_OZONE \
+					 -DHAVE_ONLINE_UPDATER -DHAVE_UPDATE_CORES -DHAVE_UPDATE_ASSETS
+
+ifeq ($(HAVE_KEYBOARD), 1)
+  DEFINES += -DHAVE_KEYBOARD
+  PS4_LIBS += -lSceDbgKeyboard
+endif
+
+ifeq ($(HAVE_MOUSE),1)
+  DEFINES += -DHAVE_MOUSE
+  PS4_LIBS += -lSceMouse
+endif
+
+ifneq ($(PC_DEVELOPMENT_IP_ADDRESS),)
+  DEFINES += -DPC_DEVELOPMENT_IP_ADDRESS='"$(PC_DEVELOPMENT_IP_ADDRESS)"'
+endif
+
+ifneq ($(PC_DEVELOPMENT_UDP_PORT),)
+  DEFINES += -DPC_DEVELOPMENT_UDP_PORT=$(PC_DEVELOPMENT_UDP_PORT)
+endif
+
+ifeq ($(WHOLE_ARCHIVE_LINK), 1)
+  WHOLE_START := --whole-archive
+  WHOLE_END := --no-whole-archive
+endif
+
+PS4_LIBS += -lkernel -lSceLibcInternal -lScePosix -lSceSysmodule -lSceSystemService \
+						-lSceUserService -lSceAudioOut -lScePad -lSceNet -lSceNetCtl -lScePigletv2VSH
+
+LIBS	:= $(WHOLE_START) -lretro_ps4 $(WHOLE_END) $(PS4_LIBS)
+
+CFLAGS   := -cc1 -triple x86_64-scei-ps4-elf -munwind-tables -std=c11 $(ARCHFLAGS) $(INCDIRS) $(DEFINES) -emit-obj
+CXXFLAGS := -cc1 -triple x86_64-scei-ps4-elf -munwind-tables -std=c++11 $(ARCHFLAGS) $(INCDIRS) $(DEFINES) -emit-obj
+LDFLAGS  := -m elf_x86_64 -pie --script $(OO_PS4_TOOLCHAIN)/link.x --eh-frame-hdr $(LIBDIRS) $(LIBS) $(OO_PS4_TOOLCHAIN)/lib/crt1.o
+ARFLAGS  := rcs $(INCDIRS)
+
+ifeq ($(DEBUG), 1)
+   CFLAGS += -O0 -fdebugger-support -fno-inline
+   CXXFLAGS += -O0 -fdebugger-support -fno-inline
+else
+   CFLAGS += -O3
+   CXXFLAGS += -O3
+endif
+
+TARGETS := $(TARGET).elf
+
+all: $(TARGETS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+%.o: %.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+%.o: %.S
+	$(AS) $(ASFLAGS) -o $@ $<
+
+%.o: %.s
+	$(AS) -o $@ $<
+
+$(TARGET).elf: $(OBJ)
+	$(LD) $(OBJ) -o $(TARGET).elf $(LDFLAGS)
+	$(OO_PS4_TOOLCHAIN)/bin/$(CDIR)/create-eboot -in=$(TARGET).elf -out=$(TARGET).oelf --paid 0x3800000000000011
+
+clean:
+	rm -f $(OBJ) $(TARGET).elf $(TARGET).oelf
+
+.PHONY: clean all

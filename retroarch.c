@@ -3791,7 +3791,11 @@ void dir_check_defaults(void)
       so it doesn't create unnecessary directories
     */
 #if defined(ORBIS) || defined(ANDROID)
+#if defined(HAVE_LIBORBIS) || defined(ANDROID)
    if (path_is_valid("host0:app/custom.ini"))
+#else
+   if (path_is_valid("/data/retroarch/custom.ini"))
+#endif
 #elif defined(__WINRT__)
    char path[MAX_PATH];
    fill_pathname_expand_special(path, "~\\custom.ini", MAX_PATH);
@@ -12030,6 +12034,8 @@ static char *get_temp_directory_alloc(const char *override_dir)
 #else
 #if defined ANDROID
    src     = override_dir;
+#elif defined(ORBIS)
+   src     = "/data/retroarch/temp";
 #else
    if (getenv("TMPDIR"))
       src  = getenv("TMPDIR");
@@ -26131,7 +26137,7 @@ static void retroarch_parse_input_and_config(int argc, char *argv[])
    optstring = "hs:fvS:A:U:DN:d:"
       BSV_MOVIE_ARG NETPLAY_ARG DYNAMIC_ARG FFMPEG_RECORD_ARG CONFIG_FILE_ARG;
 
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
    argv      = &(argv[2]);
    argc      = argc - 2;
 #endif

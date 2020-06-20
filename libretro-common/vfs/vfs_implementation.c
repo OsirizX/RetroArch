@@ -60,7 +60,9 @@
 #  if defined(ORBIS)
 #  include <sys/fcntl.h>
 #  include <sys/dirent.h>
-#  include <orbisFile.h>
+#  if defined(HAVE_LIBORBIS)
+#    include <orbisFile.h>
+#  endif
 #  endif
 #endif
 
@@ -81,8 +83,10 @@
 #  include <psp2/io/dirent.h>
 #  include <psp2/io/stat.h>
 #elif defined(ORBIS)
-#  include <orbisFile.h>
-#  include <ps4link.h>
+#  if defined(HAVE_LIBORBIS)
+#    include <orbisFile.h>
+#    include <ps4link.h>
+#  endif
 #  include <sys/dirent.h>
 #  include <sys/fcntl.h>
 #elif !defined(_WIN32)
@@ -95,7 +99,7 @@
 #  include <unistd.h>
 #endif
 
-#if (defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)) || defined(__QNX__) || defined(PSP)
+#if (defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)) || defined(__QNX__) || defined(PSP) || defined(ORBIS)
 #include <unistd.h> /* stat() is defined here */
 #endif
 
@@ -131,9 +135,12 @@
 #endif
 
 #if defined(ORBIS)
+#if defined(HAVE_LIBORBIS)
 #include <orbisFile.h>
+#endif
 #include <sys/fcntl.h>
 #include <sys/dirent.h>
+#include "../../defines/ps4_defines.h"
 #endif
 #if defined(PSP)
 #include <pspkernel.h>
@@ -147,7 +154,7 @@
 #define FIO_S_ISDIR SCE_S_ISDIR
 #endif
 
-#if (defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)) || defined(__QNX__) || defined(PSP)
+#if (defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)) || defined(__QNX__) || defined(PSP) || defined(ORBIS)
 #include <unistd.h> /* stat() is defined here */
 #endif
 
@@ -195,7 +202,7 @@ int64_t retro_vfs_file_seek_internal(libretro_vfs_implementation_file *stream, i
       return _fseeki64(stream->fp, offset, whence);
 #elif defined(__CELLOS_LV2__) || defined(_MSC_VER) && _MSC_VER <= 1310
       return fseek(stream->fp, (long)offset, whence);
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
       {
          int ret = orbisLseek(stream->fd, offset, whence);
          if (ret < 0)
@@ -370,7 +377,7 @@ libretro_vfs_implementation_file *retro_vfs_file_open_impl(
 
    if ((stream->hints & RFILE_HINT_UNBUFFERED) == 0)
    {
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
       int fd = orbisOpen(path, flags, 0644);
       if (fd < 0)
       {
@@ -463,7 +470,7 @@ libretro_vfs_implementation_file *retro_vfs_file_open_impl(
       }
 #endif
    }
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
    stream->size = orbisLseek(stream->fd, 0, SEEK_END);
    orbisLseek(stream->fd, 0, SEEK_SET);
 #else
@@ -525,7 +532,7 @@ int retro_vfs_file_close_impl(libretro_vfs_implementation_file *stream)
 
    if (stream->fd > 0)
    {
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
       orbisClose(stream->fd);
       stream->fd = -1;
 #else
@@ -554,7 +561,7 @@ int retro_vfs_file_error_impl(libretro_vfs_implementation_file *stream)
    if (stream->scheme == VFS_SCHEME_CDROM)
       return retro_vfs_file_error_cdrom(stream);
 #endif
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
    /* TODO/FIXME - implement this? */
    return 0;
 #else
@@ -577,7 +584,7 @@ int64_t retro_vfs_file_truncate_impl(libretro_vfs_implementation_file *stream, i
 #ifdef _WIN32
    if (_chsize(_fileno(stream->fp), length) != 0)
       return -1;
-#elif !defined(VITA) && !defined(PSP) && !defined(PS2) && !defined(ORBIS) && (!defined(SWITCH) || defined(HAVE_LIBNX))
+#elif !defined(VITA) && !defined(PSP) && !defined(PS2) && (!defined(ORBIS) || defined(HAVE_OOSDK))  && (!defined(SWITCH) || defined(HAVE_LIBNX))
    if (ftruncate(fileno(stream->fp), length) != 0)
       return -1;
 #endif
@@ -596,7 +603,7 @@ int64_t retro_vfs_file_tell_impl(libretro_vfs_implementation_file *stream)
       if (stream->scheme == VFS_SCHEME_CDROM)
          return retro_vfs_file_tell_cdrom(stream);
 #endif
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
       {
          int64_t ret = orbisLseek(stream->fd, 0, SEEK_CUR);
          if (ret < 0)
@@ -656,7 +663,7 @@ int64_t retro_vfs_file_read_impl(libretro_vfs_implementation_file *stream,
       if (stream->scheme == VFS_SCHEME_CDROM)
          return retro_vfs_file_read_cdrom(stream, s, len);
 #endif
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
       if (orbisRead(stream->fd, s, (size_t)len) < 0)
          return -1;
       return 0;
@@ -690,7 +697,7 @@ int64_t retro_vfs_file_write_impl(libretro_vfs_implementation_file *stream, cons
 
    if ((stream->hints & RFILE_HINT_UNBUFFERED) == 0)
    {
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
       if (orbisWrite(stream->fd, s, (size_t)len) < 0)
          return -1;
       return 0;
@@ -710,7 +717,7 @@ int retro_vfs_file_flush_impl(libretro_vfs_implementation_file *stream)
 {
    if (!stream)
       return -1;
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
    return 0;
 #else
    return fflush(stream->fp) == 0 ? 0 : -1;
@@ -753,7 +760,7 @@ int retro_vfs_file_remove_impl(const char *path)
    }
 #endif
    return -1;
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    /* Orbis
     * TODO/FIXME - stub for now */
    return 0;
@@ -813,7 +820,7 @@ int retro_vfs_file_rename_impl(const char *old_path, const char *new_path)
 #endif
    return ret;
 
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    /* Orbis */
    /* TODO/FIXME - Stub for now */
    if (!old_path || !*old_path || !new_path || !*new_path)
@@ -868,7 +875,7 @@ int retro_vfs_stat_impl(const char *path, int32_t *size)
 
    return RETRO_VFS_STAT_IS_VALID | (is_dir ? RETRO_VFS_STAT_IS_DIRECTORY : 0) | (is_character_special ? RETRO_VFS_STAT_IS_CHARACTER_SPECIAL : 0);
 
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    /* Orbis */
    bool is_dir, is_character_special;
    int dir_ret;
@@ -971,7 +978,7 @@ int retro_vfs_stat_impl(const char *path, int32_t *size)
 
 #if defined(VITA)
 #define path_mkdir_error(ret) (((ret) == SCE_ERROR_ERRNO_EEXIST))
-#elif defined(PSP) || defined(PS2) || defined(_3DS) || defined(WIIU) || defined(SWITCH) || defined(ORBIS)
+#elif defined(PSP) || defined(PS2) || defined(_3DS) || defined(WIIU) || defined(SWITCH) || (defined(ORBIS) && defined(HAVE_LIBORBIS))
 #define path_mkdir_error(ret) ((ret) == -1)
 #else
 #define path_mkdir_error(ret) ((ret) < 0 && errno == EEXIST)
@@ -996,7 +1003,7 @@ int retro_vfs_mkdir_impl(const char *dir)
    int ret = mkdir(dir, 0755);
 #elif defined(VITA) || defined(PSP)
    int ret = sceIoMkdir(dir, 0777);
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    int ret = orbisMkdir(dir, 0755);
 #elif defined(__QNX__)
    int ret = mkdir(dir, 0777);
@@ -1032,7 +1039,7 @@ struct libretro_vfs_implementation_dir
    CellFsErrno error;
    int directory;
    CellFsDirent entry;
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    int directory;
    struct dirent entry;
 #else
@@ -1045,7 +1052,7 @@ static bool dirent_check_error(libretro_vfs_implementation_dir *rdir)
 {
 #if defined(_WIN32)
    return (rdir->directory == INVALID_HANDLE_VALUE);
-#elif defined(VITA) || defined(PSP) || defined(ORBIS)
+#elif defined(VITA) || defined(PSP) || (defined(ORBIS) && defined(HAVE_LIBORBIS))
    return (rdir->directory < 0);
 #elif defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
    return (rdir->error != CELL_FS_SUCCEEDED);
@@ -1114,7 +1121,7 @@ libretro_vfs_implementation_dir *retro_vfs_opendir_impl(
    rdir->entry           = NULL;
 #elif defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
    rdir->error           = cellFsOpendir(name, &rdir->directory);
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    rdir->directory       = orbisDopen(name);
 #else
    rdir->directory       = opendir(name);
@@ -1153,7 +1160,7 @@ bool retro_vfs_readdir_impl(libretro_vfs_implementation_dir *rdir)
    uint64_t nread;
    rdir->error = cellFsReaddir(rdir->directory, &rdir->entry, &nread);
    return (nread != 0);
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    return (orbisDread(rdir->directory, &rdir->entry) > 0);
 #else
    return ((rdir->entry = readdir(rdir->directory)) != NULL);
@@ -1183,7 +1190,7 @@ const char *retro_vfs_dirent_get_name_impl(libretro_vfs_implementation_dir *rdir
    }
 #endif
    return (char*)rdir->entry.cFileName;
-#elif defined(VITA) || defined(PSP) || defined(__CELLOS_LV2__) && !defined(__PSL1GHT__) || defined(ORBIS)
+#elif defined(VITA) || defined(PSP) || defined(__CELLOS_LV2__) && !defined(__PSL1GHT__) || (defined(ORBIS) && defined(HAVE_LIBORBIS))
    return rdir->entry.d_name;
 #else
    if (!rdir || !rdir->entry)
@@ -1207,7 +1214,7 @@ bool retro_vfs_dirent_is_dir_impl(libretro_vfs_implementation_dir *rdir)
 #elif defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
    CellFsDirent *entry = (CellFsDirent*)&rdir->entry;
    return (entry->d_type == CELL_FS_TYPE_DIRECTORY);
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    const struct dirent *entry = &rdir->entry;
    if (entry->d_type == DT_DIR)
       return true;
@@ -1245,7 +1252,7 @@ int retro_vfs_closedir_impl(libretro_vfs_implementation_dir *rdir)
    sceIoDclose(rdir->directory);
 #elif defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
    rdir->error = cellFsClosedir(rdir->directory);
-#elif defined(ORBIS)
+#elif defined(ORBIS) && defined(HAVE_LIBORBIS)
    orbisDclose(rdir->directory);
 #else
    if (rdir->directory)

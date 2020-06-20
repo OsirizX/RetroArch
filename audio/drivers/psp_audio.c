@@ -34,10 +34,12 @@
 #include <pspkernel.h>
 #include <pspaudio.h>
 #elif defined(ORBIS)
+#if defined(HAVE_OOSDK)
+#include <orbis/AudioOut.h>
+#else
 #include <audioout.h>
-#define SCE_AUDIO_OUT_PORT_TYPE_MAIN   0
-#define SCE_AUDIO_OUT_MODE_STEREO      1
-#define SceUID uint32_t
+#endif
+#include "../../defines/ps4_defines.h"
 #endif
 
 #include "../../retroarch.h"
@@ -63,8 +65,13 @@ typedef struct psp_audio
 
 } psp_audio_t;
 
+#if defined(ORBIS)
+#define AUDIO_OUT_COUNT 256u
+#define AUDIO_BUFFER_SIZE (1u<<17u)
+#else
 #define AUDIO_OUT_COUNT 512u
 #define AUDIO_BUFFER_SIZE (1u<<13u)
+#endif
 #define AUDIO_BUFFER_SIZE_MASK (AUDIO_BUFFER_SIZE-1)
 
 static void audioMainLoop(void *data)
@@ -141,6 +148,7 @@ static void *psp_audio_init(const char *device,
    (void)latency;
 
 #ifdef ORBIS
+   sceAudioOutInit();
    psp->buffer      = (uint32_t*)
       malloc(AUDIO_BUFFER_SIZE * sizeof(uint32_t));
 #else
@@ -255,6 +263,9 @@ static bool psp_audio_stop(void *data)
 {
    psp_audio_t* psp = (psp_audio_t*)data;
 
+#if defined(ORBIS)
+   return false;
+#else
    if (psp){
       psp->running = false;
 
@@ -265,6 +276,7 @@ static bool psp_audio_stop(void *data)
       psp->worker_thread = NULL;
    }
    return true;
+#endif
 }
 
 static bool psp_audio_start(void *data, bool is_shutdown)

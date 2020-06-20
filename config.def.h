@@ -91,6 +91,8 @@
 #define DEFAULT_MAX_PADS 4
 #elif defined(DINGUX)
 #define DEFAULT_MAX_PADS 2
+#elif defined(ORBIS)
+#define DEFAULT_MAX_PADS 4
 #else
 #define DEFAULT_MAX_PADS 16
 #endif

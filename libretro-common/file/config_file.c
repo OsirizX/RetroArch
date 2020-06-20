@@ -36,7 +36,9 @@
 #endif
 #ifdef ORBIS
 #include <sys/fcntl.h>
+#if defined(HAVE_LIBORBIS)
 #include <orbisFile.h>
+#endif
 #endif
 #include <retro_miscellaneous.h>
 #include <compat/strl.h>
@@ -1066,7 +1068,7 @@ bool config_file_write(config_file_t *conf, const char *path, bool sort)
 
    if (!string_is_empty(path))
    {
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
       int fd     = orbisOpen(path,O_RDWR|O_CREAT,0644);
       if (fd < 0)
          return false;
@@ -1102,7 +1104,7 @@ bool config_file_write(config_file_t *conf, const char *path, bool sort)
    return true;
 }
 
-#ifdef ORBIS
+#if defined(ORBIS) && defined(HAVE_LIBORBIS)
 void config_file_dump_orbis(config_file_t *conf, int fd)
 {
    struct config_entry_list       *list = NULL;

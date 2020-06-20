@@ -83,7 +83,7 @@ LD      := $(CXX)
 INCDIRS := -I. -Ideps/7zip -Ilibretro-common/include -Ideps/stb -Ilibretro-common/include/compat/zlib
 LIBDIRS := -L.
 
-ARCHFLAGS := -m64 -DORBIS
+ARCHFLAGS := -m64 -DORBIS -DHAVE_LIBORBIS
 CFLAGS    += $(ARCHFLAGS) -std=c11 -mcmodel=large -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector
 
 ifeq ($(DEBUG), 1)
