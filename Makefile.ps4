@@ -117,8 +117,8 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 CC      := $(PREFIX)clang
-CXX     := $(PREFIX)clang
-AS      := $(PREFIX)clang
+CXX     := $(PREFIX)clang++
+AS      := $(PREFIX)as
 AR      := $(PREFIX)ar
 OBJCOPY := $(PREFIX)objcopy
 STRIP   := $(PREFIX)strip
