@@ -66,8 +66,8 @@ typedef struct psp_audio
 } psp_audio_t;
 
 #if defined(ORBIS)
-#define AUDIO_OUT_COUNT 256u
-#define AUDIO_BUFFER_SIZE (1u<<17u)
+#define AUDIO_OUT_COUNT 512u
+#define AUDIO_BUFFER_SIZE (1u<<13u)
 #else
 #define AUDIO_OUT_COUNT 512u
 #define AUDIO_BUFFER_SIZE (1u<<13u)
