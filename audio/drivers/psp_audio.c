@@ -65,13 +65,8 @@ typedef struct psp_audio
 
 } psp_audio_t;
 
-#if defined(ORBIS)
 #define AUDIO_OUT_COUNT 512u
 #define AUDIO_BUFFER_SIZE (1u<<13u)
-#else
-#define AUDIO_OUT_COUNT 512u
-#define AUDIO_BUFFER_SIZE (1u<<13u)
-#endif
 #define AUDIO_BUFFER_SIZE_MASK (AUDIO_BUFFER_SIZE-1)
 
 static void audioMainLoop(void *data)
@@ -147,24 +142,16 @@ static void *psp_audio_init(const char *device,
    (void)device;
    (void)latency;
 
-#ifdef ORBIS
+#if defined(ORBIS)
    sceAudioOutInit();
-   psp->buffer      = (uint32_t*)
-      malloc(AUDIO_BUFFER_SIZE * sizeof(uint32_t));
-#else
+#endif
    /* Cache aligned, not necessary but helpful. */
    psp->buffer      = (uint32_t*)
       memalign(64, AUDIO_BUFFER_SIZE * sizeof(uint32_t));
-#endif
    memset(psp->buffer, 0, AUDIO_BUFFER_SIZE * sizeof(uint32_t));
 
-#ifdef ORBIS
-   psp->zeroBuffer      = (uint32_t*)
-      malloc(AUDIO_OUT_COUNT * sizeof(uint32_t));
-#else
    psp->zeroBuffer  = (uint32_t*)
       memalign(64, AUDIO_OUT_COUNT   * sizeof(uint32_t));
-#endif
    memset(psp->zeroBuffer, 0, AUDIO_OUT_COUNT * sizeof(uint32_t));
 
    psp->read_pos    = 0;
