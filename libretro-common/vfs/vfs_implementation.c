@@ -77,9 +77,15 @@
 
 /* TODO: Some things are duplicated but I'm really afraid of breaking other platforms by touching this */
 #if defined(VITA)
+#if defined(DOLCE)
+#  include <fcntl.h>
+#  include <psp2/kernel/iofilemgr/dirent.h>
+#  include <psp2/kernel/iofilemgr/stat.h>
+#else
 #  include <psp2/io/fcntl.h>
 #  include <psp2/io/dirent.h>
 #  include <psp2/io/stat.h>
+#endif
 #elif defined(ORBIS)
 #  include <orbisFile.h>
 #  include <ps4link.h>
@@ -121,9 +127,15 @@
 #endif
 #elif defined(VITA)
 #define SCE_ERROR_ERRNO_EEXIST 0x80010011
+#if defined(DOLCE)
+#include <fcntl.h>
+#include <psp2/kernel/iofilemgr/dirent.h>
+#include <psp2/kernel/iofilemgr/stat.h>
+#else
 #include <psp2/io/fcntl.h>
 #include <psp2/io/dirent.h>
 #include <psp2/io/stat.h>
+#endif
 #else
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -144,6 +156,12 @@
 #endif
 
 #if defined(VITA)
+#if defined(DOLCE)
+#define SCE_S_IFDIR 0x1000
+#define SCE_S_IFMT  0xF000
+#define SCE_S_ISDIR(m) (((m) & SCE_S_IFMT) == SCE_S_IFDIR)
+//#define FIO_S_ISDIR S_ISDIR
+#endif
 #define FIO_S_ISDIR SCE_S_ISDIR
 #endif
 

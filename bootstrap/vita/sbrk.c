@@ -4,7 +4,11 @@
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/threadmgr.h>
 
+#if defined(HAVE_VITAGLES)
+#define RAM_THRESHOLD (0x1100000 + SCE_LIBC_SIZE)
+#else
 #define RAM_THRESHOLD 0x1000000 // Memory left to the system for threads and other internal stuffs
+#endif
 
 int _newlib_heap_memblock;
 unsigned _newlib_heap_size;

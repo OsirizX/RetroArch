@@ -30,7 +30,9 @@
 #include <psp2/apputil.h>
 
 #include "../../bootstrap/vita/sbrk.c"
+#if !defined(DOLCE)
 #include "../../bootstrap/vita/threading.c"
+#endif
 
 #else
 #include <pspkernel.h>
@@ -65,6 +67,10 @@
 #ifndef VITA
 #include "../../bootstrap/psp1/kernel_functions.h"
 #endif
+#endif
+
+#if defined(HAVE_VITAGLES)
+#include "../../deps/Pigs-In-A-Blanket/include/pib.h"
 #endif
 
 #ifndef VITA
@@ -293,6 +299,9 @@ static void frontend_psp_init(void *data)
    memset(&appUtilParam, 0, sizeof(SceAppUtilInitParam));
    memset(&appUtilBootParam, 0, sizeof(SceAppUtilBootParam));
    sceAppUtilInit(&appUtilParam, &appUtilBootParam);
+#if defined(HAVE_VITAGLES)
+   pibInit(PIB_SHACCCG);
+#endif
 #else
    (void)data;
    /* initialize debug screen */
