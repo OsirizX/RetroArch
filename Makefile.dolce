@@ -206,7 +206,7 @@ $(TARGET).elf: $(OBJ) libretro_vita.a libSceShaccCg_stub.a liblibScePiglet_stub.
 	vita-pack-vpk -s param.sfo -b $< $@
 
 clean:
-	rm -f $(OBJ) $(TARGET).elf $(TARGET).elf.unstripped.elf $(TARGET).velf $(TARGET).self param.sfo $(TARGET).vpk libSceShaccCg_stub.a
+	rm -f $(OBJ) $(TARGET).elf $(TARGET).elf.unstripped.elf $(TARGET).velf $(TARGET).self param.sfo $(TARGET).vpk libSceShaccCg_stub.a liblibScePiglet_stub.a
 	rm -rf  deps/vitaShaRK/SceShaccCg
 	rm -rf  deps/Pigs-In-A-Blanket/piglet_stub/liblibScePiglet_stub
 	rm -f $(OBJ:.o=.depend)
