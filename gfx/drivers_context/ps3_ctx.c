@@ -20,7 +20,12 @@
 #include "config.h"
 #endif
 
+#if defined(__PSL1GHT__)
+#include <sys/spu.h>
+#define sys_spu_initialize sysSpuInitialize
+#else
 #include <sys/spu_initialize.h>
+#endif
 
 #include <compat/strl.h>
 
@@ -31,11 +36,21 @@
 #include "../../frontend/frontend_driver.h"
 #include "../common/gl_common.h"
 
+#if defined(HAVE_EGL)
+#include "../common/egl_common.h"
+#include "../../libretro-common/include/string/stdstring.h"
+#endif
+
 typedef struct gfx_ctx_ps3_data
 {
 #if defined(HAVE_PSGL)
    PSGLdevice* gl_device;
    PSGLcontext* gl_context;
+#elif defined(HAVE_EGL)
+   egl_ctx_data_t egl;
+   bool resize;
+   unsigned width, height;
+   float refresh_rate;
 #else
    void *empty;
 #endif
@@ -43,6 +58,8 @@ typedef struct gfx_ctx_ps3_data
 
 /* TODO/FIXME - static global */
 static enum gfx_ctx_api ps3_api = GFX_CTX_NONE;
+
+static void gfx_ctx_ps3_destroy(void *data);
 
 static void gfx_ctx_ps3_get_resolution(unsigned idx,
       unsigned *width, unsigned *height)
@@ -144,6 +161,9 @@ static void gfx_ctx_ps3_set_swap_interval(void *data, int interval)
       glEnable(GL_VSYNC_SCE);
    else
       glDisable(GL_VSYNC_SCE);
+#elif defined(HAVE_EGL)
+   gfx_ctx_ps3_data_t *ps3 = (gfx_ctx_ps3_data_t *)data;
+   egl_set_swap_interval(&ps3->egl, 0);
 #endif
 }
 
@@ -166,6 +186,9 @@ static void gfx_ctx_ps3_swap_buffers(void *data)
 {
 #ifdef HAVE_PSGL
    psglSwap();
+#elif defined(HAVE_EGL)
+   gfx_ctx_ps3_data_t *ps3 = (gfx_ctx_ps3_data_t *)data;
+   egl_swap_buffers(&ps3->egl);
 #endif
 #ifdef HAVE_SYSUTILS
    cellSysutilCheckCallback();
@@ -180,6 +203,8 @@ static void gfx_ctx_ps3_get_video_size(void *data,
 #if defined(HAVE_PSGL)
    if (ps3)
       psglGetDeviceDimensions(ps3->gl_device, width, height);
+#elif defined(HAVE_EGL)
+      egl_get_video_size(&ps3->egl, width, height);
 #endif
 }
 
@@ -188,6 +213,23 @@ static void *gfx_ctx_ps3_init(void *video_driver)
 #ifdef HAVE_PSGL
    PSGLdeviceParameters params;
    PSGLinitOptions options;
+#elif defined(HAVE_EGL)
+   EGLint n;
+   EGLint major, minor;
+   static const EGLint attribs[] = {
+#if 1
+      EGL_CONFIG_ID, 1,
+#else
+      EGL_BUFFER_SIZE, 32,
+      EGL_RED_SIZE, 8,
+      EGL_BLUE_SIZE, 8,
+      EGL_GREEN_SIZE, 8,
+      EGL_ALPHA_SIZE, 8,
+      EGL_DEPTH_SIZE, 24,
+      EGL_STENCIL_SIZE, 8,
+#endif
+      EGL_NONE
+   };
 #endif
    global_t *global = global_get_ptr();
    gfx_ctx_ps3_data_t *ps3 = (gfx_ctx_ps3_data_t*)
@@ -244,6 +286,14 @@ static void *gfx_ctx_ps3_init(void *video_driver)
 
    psglMakeCurrent(ps3->gl_context, ps3->gl_device);
    psglResetCurrentContext();
+#elif defined(HAVE_EGL)
+   if (!egl_init_context(&ps3->egl, EGL_NONE, EGL_DEFAULT_DISPLAY,
+                         &major, &minor, &n, attribs, NULL))
+   {
+      egl_report_error();
+      printf("[PS3 Context]: EGL error: 0x%x.\n", eglGetError());
+      return NULL;
+  }
 #endif
 
    global->console.screen.pal_enable =
@@ -258,7 +308,33 @@ static void *gfx_ctx_ps3_init(void *video_driver)
 
 static bool gfx_ctx_ps3_set_video_mode(void *data,
       unsigned width, unsigned height,
-      bool fullscreen) { return true; }
+      bool fullscreen)
+{
+#if defined(HAVE_EGL)
+   static const EGLint contextAttributeList[] =
+   {
+       EGL_CONTEXT_CLIENT_VERSION, 2,
+       EGL_NONE
+   };
+
+   gfx_ctx_ps3_data_t *ps3 = (gfx_ctx_ps3_data_t *)data;
+
+   ps3->refresh_rate = 60;
+
+   if (!egl_create_context(&ps3->egl, 0)) {
+      egl_report_error();
+      gfx_ctx_ps3_destroy(data);
+      return false;
+   }
+
+   if (!egl_create_surface(&ps3->egl, 0)) {
+      egl_report_error();
+      gfx_ctx_ps3_destroy(data);
+      return false;
+   }
+#endif
+  return true;
+}
 
 static void gfx_ctx_ps3_destroy_resources(gfx_ctx_ps3_data_t *ps3)
 {
@@ -270,6 +346,8 @@ static void gfx_ctx_ps3_destroy_resources(gfx_ctx_ps3_data_t *ps3)
    psglDestroyDevice(ps3->gl_device);
 
    psglExit();
+#elif defined(HAVE_EGL)
+   egl_destroy(&ps3->egl);
 #endif
 }
 
@@ -293,6 +371,15 @@ static void gfx_ctx_ps3_input_driver(void *data,
    *input               = ps3input ? &input_ps3 : NULL;
    *input_data          = ps3input;
 }
+
+#if defined(HAVE_EGL)
+static void gfx_ctx_ps3_bind_hw_render(void *data, bool enable)
+{
+   gfx_ctx_ps3_data_t *ps3 = (gfx_ctx_ps3_data_t *)data;
+
+   egl_bind_hw_render(&ps3->egl, enable);
+}
+#endif
 
 static enum gfx_ctx_api gfx_ctx_ps3_get_api(void *data) { return ps3_api; }
 
@@ -374,10 +461,31 @@ static uint32_t gfx_ctx_ps3_get_flags(void *data)
    BIT32_SET(flags, GFX_CTX_FLAGS_SHADERS_CG);
 #endif
 
+#if defined(HAVE_EGL)
+   if (string_is_equal(video_driver_get_ident(), "glcore"))
+   {
+#if defined(HAVE_SLANG) && defined(HAVE_SPIRV_CROSS)
+      BIT32_SET(flags, GFX_CTX_FLAGS_SHADERS_SLANG);
+#endif
+   }
+   else
+   {
+      BIT32_SET(flags, GFX_CTX_FLAGS_SHADERS_GLSL);
+   }
+#endif
+
    return flags;
 }
 
 static void gfx_ctx_ps3_set_flags(void *data, uint32_t flags) { }
+
+#if defined(HAVE_EGL)
+static float gfx_ctx_ps3_get_refresh_rate(void *data)
+{
+   gfx_ctx_ps3_data_t *ps3 = (gfx_ctx_ps3_data_t *)data;
+   return ps3->refresh_rate;
+}
+#endif
 
 const gfx_ctx_driver_t gfx_ctx_ps3 = {
    gfx_ctx_ps3_init,
@@ -387,7 +495,11 @@ const gfx_ctx_driver_t gfx_ctx_ps3 = {
    gfx_ctx_ps3_set_swap_interval,
    gfx_ctx_ps3_set_video_mode,
    gfx_ctx_ps3_get_video_size,
+#if defined(HAVE_EGL)
+   gfx_ctx_ps3_get_refresh_rate,
+#else
    NULL, /* get_refresh_rate */
+#endif
    gfx_ctx_ps3_get_video_output_size,
    gfx_ctx_ps3_get_video_output_prev,
    gfx_ctx_ps3_get_video_output_next,
@@ -408,6 +520,10 @@ const gfx_ctx_driver_t gfx_ctx_ps3 = {
    "ps3",
    gfx_ctx_ps3_get_flags,
    gfx_ctx_ps3_set_flags,
+#if defined(HAVE_EGL)
+   gfx_ctx_ps3_bind_hw_render,
+#else
    NULL,
+#endif
    NULL
 };

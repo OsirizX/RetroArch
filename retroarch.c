@@ -607,7 +607,7 @@ static const gfx_ctx_driver_t *gfx_ctx_gl_drivers[] = {
 #if defined(HAVE_LIBNX) && defined(HAVE_OPENGL)
    &switch_ctx,
 #endif
-#if defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
+#if (defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)) || defined(HAVE_RSXGL)
    &gfx_ctx_ps3,
 #endif
 #if defined(HAVE_VIDEOCORE)

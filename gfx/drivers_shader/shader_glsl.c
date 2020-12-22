@@ -867,7 +867,7 @@ static void *gl_glsl_init(void *data, const char *path)
 
    (void)shader_support;
 
-#ifndef HAVE_OPENGLES
+#if !defined(HAVE_OPENGLES) && !defined(HAVE_RSXGL)
    RARCH_LOG("[GLSL]: Checking GLSL shader support ...\n");
    shader_support = glCreateProgram && glUseProgram && glCreateShader
       && glDeleteShader && glShaderSource && glCompileShader && glAttachShader

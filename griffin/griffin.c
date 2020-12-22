@@ -262,7 +262,7 @@ VIDEO CONTEXT
 
 #endif
 
-#if defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)
+#if (defined(__CELLOS_LV2__) && !defined(__PSL1GHT__)) || defined(HAVE_RSXGL)
 #include "../gfx/drivers_context/ps3_ctx.c"
 #elif defined(ANDROID)
 #include "../gfx/drivers_context/android_ctx.c"
@@ -505,14 +505,16 @@ VIDEO DRIVER
 #if defined(HAVE_OPENGL) || defined(HAVE_OPENGL_CORE)
 #include "../libretro-common/gfx/gl_capabilities.c"
 
-#ifndef HAVE_PSGL
+#if !defined(HAVE_PSGL) && !defined(HAVE_RSXGL)
 #include "../libretro-common/glsym/rglgen.c"
 #if defined(HAVE_OPENGLES2)
 #include "../libretro-common/glsym/glsym_es2.c"
 #elif defined(HAVE_OPENGLES3)
 #include "../libretro-common/glsym/glsym_es3.c"
 #else
+#if !defined(HAVE_RSXGL)
 #include "../libretro-common/glsym/glsym_gl.c"
+#endif
 #endif
 #endif
 

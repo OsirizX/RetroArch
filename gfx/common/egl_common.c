@@ -247,7 +247,11 @@ void egl_report_error(void)
 
 gfx_ctx_proc_t egl_get_proc_address(const char *symbol)
 {
+#if defined(HAVE_RSXGL)
+   return NULL;
+#else
    return _egl_get_proc_address(symbol);
+#endif
 }
 
 void egl_terminate(EGLDisplay dpy)
@@ -350,11 +354,13 @@ void egl_set_swap_interval(egl_ctx_data_t *egl, int interval)
       return;
 
    RARCH_LOG("[EGL]: eglSwapInterval(%u)\n", interval);
+#if !defined(HAVE_RSXGL)
    if (!_egl_swap_interval(egl->dpy, interval))
    {
       RARCH_ERR("[EGL]: eglSwapInterval() failed.\n");
       egl_report_error();
    }
+#endif
 }
 
 void egl_get_video_size(egl_ctx_data_t *egl, unsigned *width, unsigned *height)
