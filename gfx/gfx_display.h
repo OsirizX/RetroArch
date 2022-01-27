@@ -102,7 +102,8 @@ enum gfx_display_driver_type
    GFX_VIDEO_DRIVER_CTR,
    GFX_VIDEO_DRIVER_WIIU,
    GFX_VIDEO_DRIVER_GDI,
-   GFX_VIDEO_DRIVER_SWITCH
+   GFX_VIDEO_DRIVER_SWITCH,
+   GFX_VIDEO_DRIVER_RSX
 };
 
 typedef struct gfx_display_frame_info

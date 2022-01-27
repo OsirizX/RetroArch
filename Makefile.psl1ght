@@ -28,7 +28,7 @@ SELF_TARGET := $(ELF_TARGET:.elf=.self)
 CORE_PATH		= pkg/psl1ght/pkg/USRDIR/cores/CORE.SELF
 
 INCLUDE += -I. -Ips3/gcmgl/include/export -Ips3/include -Ideps -Ideps/stb -Ilibretro-common/include/compat/zlib -Ilibretro-common/include $(LIBPSL1GHT_INC) -Iinclude -Idefines
-LIBDIRS += -L.
+LIBDIRS += -L. -Lcores
 
 MACHDEP := -D__PSL1GHT__ -D__PS3__ -mcpu=cell
 CFLAGS += -Wall $(MACHDEP) $(INCLUDE)
@@ -53,7 +53,10 @@ else
 GIT			= git.exe
 endif
 
-OBJ = griffin/griffin.o
+SHADER_OBJS = ps3/shaders/vpshader_basic.vpo.o \
+              ps3/shaders/fpshader_basic.fpo.o
+
+OBJ = $(SHADER_OBJS) griffin/griffin.o
 
 ifeq ($(HAVE_LOGGER), 1)
 CFLAGS		+= -DHAVE_LOGGER
@@ -92,7 +95,9 @@ SHARED_FLAGS += -DHAVE_MENU \
 		-DHAVE_SCREENSHOTS \
 		-DHAVE_REWIND \
 		-DHAVE_MULTIMAN \
+		-DHAVE_MEMINFO \
 		-DHAVE_RGUI \
+		-DHAVE_STB_FONT \
 		-DHAVE_CORE_INFO_CACHE
 CFLAGS += -std=gnu99 $(SHARED_FLAGS)
 CXXFLAGS += $(SHARED_FLAGS)
@@ -116,6 +121,12 @@ pkg: create-core
 	$(PKG) --contentid $(CONTENTID) pkg/psl1ght/pkg/ $(PACKAGE_BASENAME).pkg
 #	cp $(PACKAGE_BASENAME).pkg $(PACKAGE_BASENAME).gnpdrm.pkg
 #	$(PACKAGE_FINALIZE) $(PACKAGE_BASENAME).gnpdrm.pkg
+
+#%.vpo.o: %.vpo
+#	@$(bin2o)
+
+#%.fpo.o : %.fpo
+#	@$(bin2o)
 
 clean:
 	rm -f $(ELF_TARGET)

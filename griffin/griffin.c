@@ -535,6 +535,7 @@ VIDEO DRIVER
 
 #if defined(__PSL1GHT__)
 #include "../gfx/drivers/rsx_gfx.c"
+#include "../gfx/drivers_display/gfx_display_rsx.c"
 #elif defined(GEKKO)
 #include "../gfx/drivers/gx_gfx.c"
 #elif defined(PSP)
@@ -632,6 +633,10 @@ FONTS
 
 #if defined(WIIU)
 #include "../gfx/drivers_font/wiiu_font.c"
+#endif
+
+#if defined(__PSL1GHT__)
+#include "../gfx/drivers_font/rsx_font.c"
 #endif
 
 #if defined(HAVE_CACA)
