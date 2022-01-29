@@ -54,7 +54,7 @@
 #include <ppu-types.h>
 
 #define CB_SIZE		0x100000
-#define HOST_SIZE	(128*1024*1024)
+#define HOST_SIZE	(32*1024*1024)
 
 #include <ppu-lv2.h>
 #include <stdio.h>
