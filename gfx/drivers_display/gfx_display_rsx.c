@@ -84,13 +84,13 @@ static void gfx_display_rsx_draw(gfx_display_ctx_draw_t *draw,
       tex_coord       = &rsx_tex_coords[0];
    if (!draw->coords->lut_tex_coord)
       draw->coords->lut_tex_coord = &rsx_tex_coords[0];
+   if (!draw->texture)
+      return;
 
-   vp.x = draw->x;
-   vp.y = rsx->height - draw->y - draw->height;
-   if (vp.y < 0)
-      vp.y = draw->y;
-   vp.w = draw->width;
-   vp.h = draw->height;
+   vp.x = fabs(draw->x);
+   vp.y = fabs(rsx->height - draw->y - draw->height);
+   vp.w = draw->width <= rsx->width ? draw->width : rsx->width;
+   vp.h = draw->height <= rsx->height ? draw->height : rsx->height;
    vp.min = 0.0f;
    vp.max = 1.0f;
    vp.scale[0] = vp.w*0.5f;
@@ -122,12 +122,12 @@ static void gfx_display_rsx_draw(gfx_display_ctx_draw_t *draw,
       rsx->vertices[i].b = *color++;
       rsx->vertices[i].a = *color++;
    }
-	rsxBindVertexArrayAttrib(rsx->context, rsx->pos_index->index, 0, rsx->pos_offset, sizeof(rsx_vertex_t), 3, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
-	rsxBindVertexArrayAttrib(rsx->context, rsx->uv_index->index, 0, rsx->uv_offset, sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
-	rsxBindVertexArrayAttrib(rsx->context, rsx->col_index->index, 0, rsx->col_offset, sizeof(rsx_vertex_t), 4, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   rsxBindVertexArrayAttrib(rsx->context, rsx->pos_index->index, 0, rsx->pos_offset, sizeof(rsx_vertex_t), 3, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   rsxBindVertexArrayAttrib(rsx->context, rsx->uv_index->index, 0, rsx->uv_offset, sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   rsxBindVertexArrayAttrib(rsx->context, rsx->col_index->index, 0, rsx->col_offset, sizeof(rsx_vertex_t), 4, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
 
-	rsxSetVertexProgramParameter(rsx->context, rsx->vpo, rsx->proj_matrix, (float*)&rsx->mvp_no_rot);
-	rsxDrawVertexArray(rsx->context, GCM_TYPE_TRIANGLE_STRIP, 0, draw->coords->vertices);
+   rsxSetVertexProgramParameter(rsx->context, rsx->vpo, rsx->proj_matrix, (float *)&rsx->mvp_no_rot);
+   rsxDrawVertexArray(rsx->context, GCM_TYPE_TRIANGLE_STRIP, 0, draw->coords->vertices);
 }
 
 static bool gfx_display_rsx_font_init_first(
@@ -165,9 +165,9 @@ static void gfx_display_rsx_scissor_end(
 static void gfx_display_rsx_blend_begin(void *data)
 {
    rsx_t *rsx = (rsx_t *)data;
+   rsxSetBlendEnable(rsx->context, GCM_TRUE);
    rsxSetBlendFunc(rsx->context, GCM_SRC_ALPHA, GCM_ONE_MINUS_SRC_ALPHA, GCM_SRC_ALPHA, GCM_ONE_MINUS_SRC_ALPHA);
    rsxSetBlendEquation(rsx->context, GCM_FUNC_ADD, GCM_FUNC_ADD);
-	rsxSetBlendEnable(rsx->context, GCM_TRUE);
 }
 
 static void gfx_display_rsx_blend_end(void *data)

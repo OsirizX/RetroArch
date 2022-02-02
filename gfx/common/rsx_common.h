@@ -53,7 +53,7 @@ typedef struct
 typedef struct
 {
    float x, y, z;
-   float n1, n2, n3;
+   float nx, ny, nz;
    float u, v;
    float r, g, b, a;
 } rsx_vertex_t;

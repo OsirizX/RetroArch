@@ -312,6 +312,14 @@ static const char *font_renderer_stb_unicode_get_default_font(void)
       "vs0:data/external/font/pvf/k006004ds.ttf",
       "vs0:data/external/font/pvf/n023055ms.ttf",
       "vs0:data/external/font/pvf/n023055ts.ttf",
+#elif defined(__PSL1GHT__)
+      "/dev_flash/data/font/SONY-CC/c041056ts.ttf",
+      "/dev_flash/data/font/SONY-CC/d013013ds.ttf",
+      "/dev_flash/data/font/SONY-CC/e046323ms.ttf",
+      "/dev_flash/data/font/SONY-CC/e046323ts.ttf",
+      "/dev_flash/data/font/SONY-CC/k006004ds.ttf",
+      "/dev_flash/data/font/SONY-CC/n023055ms.ttf",
+      "/dev_flash/data/font/SONY-CC/n023055ts.ttf",
 #elif !defined(__WINRT__)
       "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
       "/usr/share/fonts/TTF/DejaVuSans.ttf",

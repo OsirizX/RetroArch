@@ -607,7 +607,7 @@ static uintptr_t rsx_load_texture(void *video_data, void *data,
    texture->width = image->width;
    texture->height = image->height;
    texture->data = (u32*)rsxMemalign(128, (image->height * image->width*4));
-	rsxAddressToOffset(texture->data, &texture->offset);
+   rsxAddressToOffset(texture->data, &texture->offset);
    rsx_load_texture_data(rsx, texture, image->pixels, image->width, image->height, image->width*4, true, filter_type);
 
    return (uintptr_t)texture;;
@@ -758,34 +758,34 @@ static void rsx_load_texture_data(rsx_t* rsx, rsx_texture_t *texture,
 {
    u32 mag_filter, min_filter;
 
-	if (!texture->data) {
-	   texture->data = (u32 *)rsxMemalign(128, texture->height * texture->width*4);
-	   rsxAddressToOffset(texture->data, &texture->offset);
+   if (!texture->data)
+   {
+      texture->data = (u32 *)rsxMemalign(128, texture->height * pitch);
+      rsxAddressToOffset(texture->data, &texture->offset);
    }
 
    u8 *texbuffer = (u8 *)texture->data;
    const u8 *data = (u8 *)frame;
    memcpy(texbuffer, data, height * pitch);
 
-	texture->tex.format = ((rgb32 ? GCM_TEXTURE_FORMAT_A8R8G8B8 : GCM_TEXTURE_FORMAT_R5G6B5) | GCM_TEXTURE_FORMAT_LIN);
-	texture->tex.mipmap = 1;
-	texture->tex.dimension = GCM_TEXTURE_DIMS_2D;
-	texture->tex.cubemap = GCM_FALSE;
-	texture->tex.remap = GCM_TEXTURE_REMAP_MODE(GCM_TEXTURE_REMAP_ORDER_XYXY,
-                                               GCM_TEXTURE_REMAP_COLOR_A,
-                                               GCM_TEXTURE_REMAP_COLOR_R,
-                                               GCM_TEXTURE_REMAP_COLOR_G,
-                                               GCM_TEXTURE_REMAP_COLOR_B,
-                                               GCM_TEXTURE_REMAP_TYPE_REMAP,
-                                               GCM_TEXTURE_REMAP_TYPE_REMAP,
-                                               GCM_TEXTURE_REMAP_TYPE_REMAP,
-                                               GCM_TEXTURE_REMAP_TYPE_REMAP);
-	texture->tex.width = width;
-	texture->tex.height = height;
-	texture->tex.depth = 1;
-	texture->tex.location = GCM_LOCATION_RSX;
-	texture->tex.pitch = pitch;
-	texture->tex.offset = texture->offset;
+	 texture->tex.format = ((rgb32 ? GCM_TEXTURE_FORMAT_A8R8G8B8 : GCM_TEXTURE_FORMAT_R5G6B5) | GCM_TEXTURE_FORMAT_LIN);
+	 texture->tex.mipmap = 1;
+	 texture->tex.dimension = GCM_TEXTURE_DIMS_2D;
+	 texture->tex.cubemap = GCM_FALSE;
+   texture->tex.remap = ((GCM_TEXTURE_REMAP_TYPE_REMAP << GCM_TEXTURE_REMAP_TYPE_B_SHIFT) |
+                         (GCM_TEXTURE_REMAP_TYPE_REMAP << GCM_TEXTURE_REMAP_TYPE_G_SHIFT) |
+                         (GCM_TEXTURE_REMAP_TYPE_REMAP << GCM_TEXTURE_REMAP_TYPE_R_SHIFT) |
+                         (GCM_TEXTURE_REMAP_TYPE_REMAP << GCM_TEXTURE_REMAP_TYPE_A_SHIFT) |
+                         (GCM_TEXTURE_REMAP_COLOR_B << GCM_TEXTURE_REMAP_COLOR_B_SHIFT) |
+                         (GCM_TEXTURE_REMAP_COLOR_G << GCM_TEXTURE_REMAP_COLOR_G_SHIFT) |
+                         (GCM_TEXTURE_REMAP_COLOR_R << GCM_TEXTURE_REMAP_COLOR_R_SHIFT) |
+                         (GCM_TEXTURE_REMAP_COLOR_A << GCM_TEXTURE_REMAP_COLOR_A_SHIFT));
+	 texture->tex.width = width;
+	 texture->tex.height = height;
+	 texture->tex.depth = 1;
+	 texture->tex.location = GCM_LOCATION_RSX;
+	 texture->tex.pitch = pitch;
+	 texture->tex.offset = texture->offset;
 
    switch (filter_type)
    {
@@ -816,7 +816,7 @@ static void rsx_set_texture(rsx_t* rsx, rsx_texture_t *texture)
    rsxTextureWrapMode(rsx->context, rsx->tex_unit->index, texture->wrap_s, texture->wrap_t, GCM_TEXTURE_CLAMP_TO_EDGE, 0, GCM_TEXTURE_ZFUNC_LESS, 0);
 }
 
-static void rsx_draw_vertices(rsx_t* rsx)
+static void rsx_clear_surface(rsx_t* rsx)
 {
    rsxSetColorMask(rsx->context,
                GCM_COLOR_MASK_R |
@@ -844,7 +844,10 @@ static void rsx_draw_vertices(rsx_t* rsx)
                   GCM_CLEAR_S |
                   GCM_CLEAR_Z);
    rsxSetZControl(rsx->context, 0, 1, 1);
+}
 
+static void rsx_draw_vertices(rsx_t* rsx)
+{
    if (rsx->should_resize)
       rsx_set_viewport(rsx, rsx->width, rsx->height, false, true);
 
@@ -909,7 +912,7 @@ static bool rsx_frame(void* data, const void* frame,
    bool widgets_active              = video_info->widgets_active;
 #endif
 
-   if(frame && width && height)
+   if(frame && width && height && !menu_is_alive)
    {
       rsx_load_texture_data(gcm, &gcm->texture, frame, width, height, pitch, gcm->rgb32,
                             gcm->smooth ? TEXTURE_FILTER_LINEAR : TEXTURE_FILTER_NEAREST);
@@ -917,6 +920,7 @@ static bool rsx_frame(void* data, const void* frame,
       rsx_draw_vertices(gcm);
    }
 
+#ifdef HAVE_MENU
    if (gcm->menu_frame_enable && menu_is_alive)
    {
       menu_driver_frame(menu_is_alive, video_info);
@@ -927,7 +931,6 @@ static bool rsx_frame(void* data, const void* frame,
       }
    };
 
-#ifdef HAVE_MENU
    if (statistics_show)
       if (osd_params)
          font_driver_render_msg(gcm,
@@ -945,6 +948,7 @@ static bool rsx_frame(void* data, const void* frame,
 
    /* TODO: translucid menu */
    rsx_update_screen(gcm);
+   rsx_clear_surface(gcm);
 
    return true;
 }
