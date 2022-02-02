@@ -53,8 +53,8 @@ else
 GIT			= git.exe
 endif
 
-SHADER_OBJS = ps3/shaders/vpshader_basic.vpo.o \
-              ps3/shaders/fpshader_basic.fpo.o
+SHADER_OBJS = gfx/drivers/rsx_shaders/vpshader_basic.vpo.o \
+              gfx/drivers/rsx_shaders/fpshader_basic.fpo.o
 
 OBJ = $(SHADER_OBJS) griffin/griffin.o
 
