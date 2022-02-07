@@ -698,7 +698,7 @@ static size_t frontend_ps3_get_mem_used(void)
 {
    sys_memory_info_t mem_info;
    sys_memory_get_user_memory_size(&mem_info);
-   return mem_info.total - mem_info.avail;
+   return mem_info.avail;
 }
 #endif
 
