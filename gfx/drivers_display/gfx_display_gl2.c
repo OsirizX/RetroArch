@@ -235,7 +235,14 @@ static void gfx_display_gl2_draw(gfx_display_ctx_draw_t *draw,
    if (!draw->coords->lut_tex_coord)
       draw->coords->lut_tex_coord = &gl2_tex_coords[0];
 
+#if defined(HAVE_RSXGL)
+   GLint vpx = (GLint)draw->x;
+   float vpyf = fabs(video_height - draw->y - draw->height);
+   GLint vpy = (GLint)vpyf;
+   glViewport(vpx, vpy, draw->width, draw->height);
+#else
    glViewport(draw->x, draw->y, draw->width, draw->height);
+#endif
    glBindTexture(GL_TEXTURE_2D, (GLuint)draw->texture);
 
    gl->shader->set_coords(gl->shader_data, draw->coords);
