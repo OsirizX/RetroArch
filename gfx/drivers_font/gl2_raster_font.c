@@ -109,8 +109,13 @@ static bool gl2_raster_font_upload_atlas(gl2_raster_t *font)
 
             for (j = 0; j < (int)font->atlas->width; ++j)
             {
+#if defined(HAVE_RSXGL)
+               *dst++ = *src++;
+               *dst++ = 0xff;
+#else
                *dst++ = 0xff;
                *dst++ = *src++;
+#endif
             }
          }
          break;
