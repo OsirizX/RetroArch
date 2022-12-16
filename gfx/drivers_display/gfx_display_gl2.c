@@ -236,10 +236,9 @@ static void gfx_display_gl2_draw(gfx_display_ctx_draw_t *draw,
       draw->coords->lut_tex_coord = &gl2_tex_coords[0];
 
 #if defined(HAVE_RSXGL)
-   GLint vpx = (GLint)draw->x;
-   float vpyf = fabs(video_height - draw->y - draw->height);
-   GLint vpy = (GLint)vpyf;
-   glViewport(vpx, vpy, draw->width, draw->height);
+   float vpx = fabs(draw->x);
+   float vpy = fabs(video_height - draw->y - draw->height);
+   glViewport((GLint)vpx, (GLint)vpy, (GLsizei)draw->width, (GLsizei)draw->height);
 #else
    glViewport(draw->x, draw->y, draw->width, draw->height);
 #endif
