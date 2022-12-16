@@ -518,7 +518,7 @@ VIDEO DRIVER
 #if defined(HAVE_OPENGL) || defined(HAVE_OPENGL_CORE)
 #include "../libretro-common/gfx/gl_capabilities.c"
 
-#ifndef HAVE_PSGL
+#if !defined(HAVE_PSGL) && !defined(HAVE_RSXGL)
 #include "../libretro-common/glsym/rglgen.c"
 #if defined(HAVE_OPENGLES2)
 #include "../libretro-common/glsym/glsym_es2.c"

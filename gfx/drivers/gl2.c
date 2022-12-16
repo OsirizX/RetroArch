@@ -286,7 +286,7 @@ static bool gl2_shader_scale(gl2_t *gl,
 
 static void gl2_size_format(GLint* internalFormat)
 {
-#ifndef HAVE_PSGL
+#if !defined(HAVE_PSGL) && !defined(HAVE_RSXGL)
    switch (*internalFormat)
    {
       case GL_RGB:
@@ -759,7 +759,7 @@ static unsigned gl2_wrap_type_to_enum(enum gfx_wrap_type type)
 {
    switch (type)
    {
-#ifndef HAVE_OPENGLES
+#if !defined(HAVE_OPENGLES) && !defined(HAVE_RSXGL)
       case RARCH_WRAP_BORDER: /* GL_CLAMP_TO_BORDER: Available since GL 1.3 */
          return GL_CLAMP_TO_BORDER;
 #else
@@ -1410,7 +1410,7 @@ error:
    return false;
 }
 
-#ifdef HAVE_OPENGLES
+#if defined(HAVE_OPENGLES) || defined(HAVE_RSXGL)
 #define gl2_renderchain_restore_default_state(gl) \
    glDisable(GL_DEPTH_TEST); \
    glDisable(GL_CULL_FACE); \
@@ -3423,7 +3423,7 @@ static INLINE void gl2_set_texture_fmts(gl2_t *gl, bool rgb32)
          gl->texture_type = GL_RGBA;
       }
    }
-#ifndef HAVE_OPENGLES
+#if !defined(HAVE_OPENGLES) && !defined(HAVE_RSXGL)
    else if (gl->have_es2_compat)
    {
       RARCH_LOG("[GL]: Using GL_RGB565 for texture uploads.\n");
@@ -3824,7 +3824,7 @@ static void *gl2_init(const video_info_t *video,
 
    gl2_renderchain_restore_default_state(gl);
 
-#ifndef HAVE_OPENGLES
+#ifdef HAVE_OPENGLES
    if (hwr->context_type == RETRO_HW_CONTEXT_OPENGL_CORE)
    {
       gl2_renderchain_data_t *chain = (gl2_renderchain_data_t*)

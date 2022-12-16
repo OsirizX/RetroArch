@@ -56,6 +56,12 @@
 #endif
 
 #ifdef __PSL1GHT__
+#define CELL_SYSMODULE_GCM 0x10
+#define CELL_SYSMODULE_AUDIO 0x11
+#define CELL_SYSMODULE_LV2DBG 0x2e
+#endif
+
+#ifdef __PSL1GHT__
 #define EMULATOR_CONTENT_DIR "SSNE10001"
 #else
 #define EMULATOR_CONTENT_DIR "SSNE10000"
@@ -292,9 +298,16 @@ static void frontend_ps3_init(void *data)
    cellSysutilRegisterCallback(0, callback_sysutil_exit, NULL);
 #endif
 
+#if defined(__PSL1GHT__) && defined(HAVE_RSXGL)
+  cellSysmoduleLoadModule(CELL_SYSMODULE_GCM);
+  cellSysmoduleLoadModule(CELL_SYSMODULE_AUDIO);
+  cellSysmoduleLoadModule(CELL_SYSMODULE_LV2DBG);
+  pthread_init();
+#endif
+
 #ifdef HAVE_SYSMODULES
 
-#ifdef HAVE_FREETYPE
+#if defined(HAVE_FREETYPE) && !defined(__PSL1GHT__)
    cellSysmoduleLoadModule(CELL_SYSMODULE_FONT);
    cellSysmoduleLoadModule(CELL_SYSMODULE_FREETYPE);
    cellSysmoduleLoadModule(CELL_SYSMODULE_FONTFT);

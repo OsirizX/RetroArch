@@ -25,7 +25,7 @@
 
 #include "rglgen.h"
 
-#ifndef HAVE_PSGL
+#if !defined(HAVE_PSGL) && !defined(HAVE_RSXGL)
 #if defined(HAVE_OPENGLES2)
 #include "glsym_es2.h"
 #elif defined(HAVE_OPENGLES3)
@@ -40,6 +40,16 @@
 
 #ifdef HAVE_GLSYM_PRIVATE
 #include "glsym_private.h"
+#endif
+
+#if defined(HAVE_RSXGL)
+GLAPI GLsync APIENTRY glFenceSync (GLenum condition, GLbitfield flags);
+GLAPI void APIENTRY glDeleteSync (GLsync sync);
+GLAPI void APIENTRY glWaitSync (GLsync sync, GLbitfield flags, GLuint64 timeout);
+GLAPI GLenum APIENTRY glClientWaitSync (GLsync sync, GLbitfield flags, GLuint64 timeout);
+GLAPI void APIENTRY glGenVertexArrays (GLsizei n, GLuint *arrays);
+GLAPI void APIENTRY glBindVertexArray (GLuint array);
+GLAPI void APIENTRY glDeleteVertexArrays (GLsizei n, const GLuint *arrays);
 #endif
 
 #endif

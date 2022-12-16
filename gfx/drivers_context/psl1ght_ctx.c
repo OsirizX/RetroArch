@@ -29,18 +29,37 @@
 #include "../../frontend/frontend_driver.h"
 #include <rsx/rsx.h>
 
+#if defined(HAVE_RSXGL)
+#include "../common/gl_common.h"
+#include "../common/gl2_common.h"
+#if defined(HAVE_EGL)
+#include "../common/egl_common.h"
+#endif
+#endif
+
 typedef struct gfx_ctx_psl1ght_data
 {
 #if defined(HAVE_PSGL)
    PSGLdevice* gl_device;
    PSGLcontext* gl_context;
+#elif defined(HAVE_EGL)
+   egl_ctx_data_t egl;
+   bool resize;
+   unsigned width, height;
+   float refresh_rate;
 #else
    gcmContextData *rx_context;
 #endif
 } gfx_ctx_psl1ght_data_t;
 
 /* TODO/FIXME - static global */
+#if defined(HAVE_RSXGL)
+static enum gfx_ctx_api ps3_api = GFX_CTX_OPENGL_API;
+#else
 static enum gfx_ctx_api ps3_api = GFX_CTX_RSX_API;
+#endif
+
+static void gfx_ctx_psl1ght_destroy(void *data);
 
 static void gfx_ctx_psl1ght_get_resolution(unsigned idx,
       unsigned *width, unsigned *height)
@@ -142,6 +161,9 @@ static void gfx_ctx_psl1ght_set_swap_interval(void *data, int interval)
       glEnable(GL_VSYNC_SCE);
    else
       glDisable(GL_VSYNC_SCE);
+#elif defined(HAVE_EGL)
+   gfx_ctx_psl1ght_data_t *psl1ght = (gfx_ctx_psl1ght_data_t*)data;
+   egl_set_swap_interval(&psl1ght->egl, 0);
 #endif
 }
 
@@ -158,6 +180,9 @@ static void gfx_ctx_psl1ght_swap_buffers(void *data)
 {
 #ifdef HAVE_PSGL
    psglSwap();
+#elif defined(HAVE_EGL)
+   gfx_ctx_psl1ght_data_t *psl1ght = (gfx_ctx_psl1ght_data_t *)data;
+   egl_swap_buffers(&psl1ght->egl);
 #endif
 #ifdef HAVE_SYSUTILS
    cellSysutilCheckCallback();
@@ -167,10 +192,14 @@ static void gfx_ctx_psl1ght_swap_buffers(void *data)
 static void gfx_ctx_psl1ght_get_video_size(void *data,
       unsigned *width, unsigned *height)
 {
-#if defined(HAVE_PSGL)
+#if defined(HAVE_PSGL) || defined(HAVE_EGL)
    gfx_ctx_psl1ght_data_t *psl1ght = (gfx_ctx_psl1ght_data_t*)data;
    if (psl1ght)
-      psglGetDeviceDimensions(ps3->gl_device, width, height);
+#if defined(HAVE_PSGL)
+      psglGetDeviceDimensions(psl1ght->gl_device, width, height);
+#elif defined(HAVE_EGL)
+      egl_get_video_size(&psl1ght->egl, width, height);
+#endif
 #endif
 }
 
@@ -183,7 +212,33 @@ static void *gfx_ctx_psl1ght_init(void *video_driver)
    if (!psl1ght)
       return NULL;
 
+#if defined(HAVE_EGL)
+   EGLint n;
+   EGLint major, minor;
+   static const EGLint attribs[] = {
+#if 1
+      EGL_CONFIG_ID, 1,
+#else
+      EGL_BUFFER_SIZE, 32,
+      EGL_RED_SIZE, 8,
+      EGL_BLUE_SIZE, 8,
+      EGL_GREEN_SIZE, 8,
+      EGL_ALPHA_SIZE, 8,
+      EGL_DEPTH_SIZE, 24,
+      EGL_STENCIL_SIZE, 8,
+#endif
+      EGL_NONE
+   };
 
+   if (!egl_init_context(&psl1ght->egl, EGL_NONE, EGL_DEFAULT_DISPLAY,
+                         &major, &minor, &n, attribs, NULL))
+   {
+      egl_report_error();
+      printf("[PSL1GHT Context]: EGL error: 0x%x.\n", eglGetError());
+      return NULL;
+   }
+
+#endif
 
    global->console.screen.pal_enable =
       cellVideoOutGetResolutionAvailability(
@@ -197,7 +252,33 @@ static void *gfx_ctx_psl1ght_init(void *video_driver)
 
 static bool gfx_ctx_psl1ght_set_video_mode(void *data,
       unsigned width, unsigned height,
-      bool fullscreen) { return true; }
+      bool fullscreen)
+{
+#if defined(HAVE_EGL)
+   static const EGLint contextAttributeList[] =
+   {
+      EGL_CONTEXT_CLIENT_VERSION, 2,
+      EGL_NONE
+   };
+
+   gfx_ctx_psl1ght_data_t *psl1ght = (gfx_ctx_psl1ght_data_t *)data;
+
+   psl1ght->refresh_rate = 60;
+
+   if (!egl_create_context(&psl1ght->egl, 0)) {
+      egl_report_error();
+      gfx_ctx_psl1ght_destroy(data);
+      return false;
+   }
+
+   if (!egl_create_surface(&psl1ght->egl, 0)) {
+      egl_report_error();
+      gfx_ctx_psl1ght_destroy(data);
+      return false;
+   }
+#endif
+  return true;
+}
 
 static void gfx_ctx_psl1ght_destroy_resources(gfx_ctx_psl1ght_data_t *ps3)
 {
@@ -209,6 +290,8 @@ static void gfx_ctx_psl1ght_destroy_resources(gfx_ctx_psl1ght_data_t *ps3)
    psglDestroyDevice(ps3->gl_device);
 
    psglExit();
+#elif defined(HAVE_EGL)
+   egl_destroy(&ps3->egl);
 #endif
 }
 
@@ -233,6 +316,14 @@ static void gfx_ctx_psl1ght_input_driver(void *data,
    *input_data          = ps3input;
 }
 
+#if defined(HAVE_EGL)
+static void gfx_ctx_psl1ght_bind_hw_render(void *data, bool enable)
+{
+   gfx_ctx_psl1ght_data_t *psl1ght = (gfx_ctx_psl1ght_data_t *)data;
+   egl_bind_hw_render(&psl1ght->egl, enable);
+}
+#endif
+
 static enum gfx_ctx_api gfx_ctx_psl1ght_get_api(void *data) { return ps3_api; }
 
 static bool gfx_ctx_psl1ght_bind_api(void *data,
@@ -240,8 +331,16 @@ static bool gfx_ctx_psl1ght_bind_api(void *data,
 {
    ps3_api = api;
 
+#if defined(HAVE_RSXGL)
+   if (
+      api == GFX_CTX_OPENGL_API ||
+      api == GFX_CTX_OPENGL_ES_API
+   )
+      return true;
+#else
    if (api == GFX_CTX_RSX_API)
       return true;
+#endif
 
    return false;
 }
@@ -310,10 +409,31 @@ static uint32_t gfx_ctx_psl1ght_get_flags(void *data)
    BIT32_SET(flags, GFX_CTX_FLAGS_SHADERS_CG);
 #endif
 
+#if defined(HAVE_EGL)
+   if (string_is_equal(video_driver_get_ident(), "glcore"))
+   {
+#if defined(HAVE_SLANG) && defined(HAVE_SPIRV_CROSS)
+      BIT32_SET(flags, GFX_CTX_FLAGS_SHADERS_SLANG);
+#endif
+   }
+   else
+   {
+      BIT32_SET(flags, GFX_CTX_FLAGS_SHADERS_GLSL);
+   }
+#endif
+
    return flags;
 }
 
 static void gfx_ctx_psl1ght_set_flags(void *data, uint32_t flags) { }
+
+#if defined(HAVE_EGL)
+static float gfx_ctx_psl1ght_get_refresh_rate(void *data)
+{
+   gfx_ctx_psl1ght_data_t *psl1ght = (gfx_ctx_psl1ght_data_t *)data;
+   return psl1ght->refresh_rate;
+}
+#endif
 
 const gfx_ctx_driver_t gfx_ctx_psl1ght = {
    gfx_ctx_psl1ght_init,
@@ -323,7 +443,11 @@ const gfx_ctx_driver_t gfx_ctx_psl1ght = {
    gfx_ctx_psl1ght_set_swap_interval,
    gfx_ctx_psl1ght_set_video_mode,
    gfx_ctx_psl1ght_get_video_size,
+#if defined(HAVE_EGL)
+   gfx_ctx_psl1ght_get_refresh_rate,
+#else
    NULL, /* get_refresh_rate */
+#endif
    gfx_ctx_psl1ght_get_video_output_size,
    gfx_ctx_psl1ght_get_video_output_prev,
    gfx_ctx_psl1ght_get_video_output_next,
@@ -344,6 +468,10 @@ const gfx_ctx_driver_t gfx_ctx_psl1ght = {
    "psl1ght",
    gfx_ctx_psl1ght_get_flags,
    gfx_ctx_psl1ght_set_flags,
+#if defined(HAVE_EGL)
+   gfx_ctx_psl1ght_bind_hw_render,
+#else
    NULL,
+#endif
    NULL
 };
