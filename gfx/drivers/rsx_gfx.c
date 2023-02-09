@@ -306,11 +306,11 @@ static void rsx_init_render_target(rsx_t *rsx, rsxBuffer * buffer, int id)
 
 static void rsx_init_vertices(rsx_t *rsx)
 {
-   rsx->vertices = (rsx_vertex_t *)rsxMemalign(128, sizeof(rsx_vertex_t) * 4);
+   rsx->vertices = (rsx_vertex_t *)rsxMemalign(128, sizeof(rsx_vertex_t) * RSX_MAX_VERTICES); // vertices for menu and core
+   rsx->vert_idx = 0;
 
    rsx->vertices[0].x = 0.0f;
    rsx->vertices[0].y = 0.0f;
-   rsx->vertices[0].z = 0.0f;
    rsx->vertices[0].u = 0.0f;
    rsx->vertices[0].v = 1.0f;
    rsx->vertices[0].r = 1.0f;
@@ -320,7 +320,6 @@ static void rsx_init_vertices(rsx_t *rsx)
 
    rsx->vertices[1].x = 1.0f;
    rsx->vertices[1].y = 0.0f;
-   rsx->vertices[1].z = 0.0f;
    rsx->vertices[1].u = 1.0f;
    rsx->vertices[1].v = 1.0f;
    rsx->vertices[1].r = 1.0f;
@@ -330,7 +329,6 @@ static void rsx_init_vertices(rsx_t *rsx)
 
    rsx->vertices[2].x = 0.0f;
    rsx->vertices[2].y = 1.0f;
-   rsx->vertices[2].z = 0.0f;
    rsx->vertices[2].u = 0.0f;
    rsx->vertices[2].v = 0.0f;
    rsx->vertices[2].r = 1.0f;
@@ -340,7 +338,6 @@ static void rsx_init_vertices(rsx_t *rsx)
 
    rsx->vertices[3].x = 1.0f;
    rsx->vertices[3].y = 1.0f;
-   rsx->vertices[3].z = 0.0f;
    rsx->vertices[3].u = 1.0f;
    rsx->vertices[3].v = 0.0f;
    rsx->vertices[3].r = 1.0f;
@@ -348,35 +345,59 @@ static void rsx_init_vertices(rsx_t *rsx)
    rsx->vertices[3].b = 1.0f;
    rsx->vertices[3].a = 1.0f;
 
-   rsxAddressToOffset(&rsx->vertices[0].x, &rsx->pos_offset);
-   rsxAddressToOffset(&rsx->vertices[0].u, &rsx->uv_offset);
-   rsxAddressToOffset(&rsx->vertices[0].r, &rsx->col_offset);
+#if RSX_MAX_TEXTURE_VERTICES > 0
+   /* Using preallocated texture vertices */
+   rsx->texture_vertices = (rsx_vertex_t *)rsxMemalign(128, sizeof(rsx_vertex_t) * RSX_MAX_TEXTURE_VERTICES);
+   rsx->texture_vert_idx = 0;
+#endif
 }
 
 static void rsx_init_shader(rsx_t *rsx)
 {
+
    u32 fpsize = 0;
    u32 vpsize = 0;
-   rsx->vp_ucode = NULL;
-   rsx->fp_ucode = NULL;
-   rsx->vpo = (rsxVertexProgram *)vpshader_basic_vpo;
-   rsx->fpo = (rsxFragmentProgram *)fpshader_basic_fpo;
-   rsxVertexProgramGetUCode(rsx->vpo, &rsx->vp_ucode, &vpsize);
-   rsxFragmentProgramGetUCode(rsx->fpo, &rsx->fp_ucode, &fpsize);
-   rsx->fp_buffer = (u32 *)rsxMemalign(64, fpsize);
-   if (!rsx->fp_buffer)
+
+   rsx->vp_ucode[VIDEO_SHADER_MENU] = NULL;
+   rsx->fp_ucode[VIDEO_SHADER_MENU] = NULL;
+   rsx->vpo[VIDEO_SHADER_MENU] = (rsxVertexProgram *)modern_opaque_vpo;
+   rsx->fpo[VIDEO_SHADER_MENU] = (rsxFragmentProgram *)modern_opaque_fpo;
+   rsxVertexProgramGetUCode(rsx->vpo[VIDEO_SHADER_MENU], &rsx->vp_ucode[VIDEO_SHADER_MENU], &vpsize);
+   rsxFragmentProgramGetUCode(rsx->fpo[VIDEO_SHADER_MENU], &rsx->fp_ucode[VIDEO_SHADER_MENU], &fpsize);
+   rsx->fp_buffer[0] = (u32 *)rsxMemalign(64, fpsize);
+   if (!rsx->fp_buffer[0])
    {
       RARCH_LOG("failed to allocate fp_buffer\n");
       return;
    }
-   memcpy(rsx->fp_buffer, rsx->fp_ucode, fpsize);
-   rsxAddressToOffset(rsx->fp_buffer ,&rsx->fp_offset);
+   memcpy(rsx->fp_buffer[VIDEO_SHADER_MENU], rsx->fp_ucode[VIDEO_SHADER_MENU], fpsize);
+   rsxAddressToOffset(rsx->fp_buffer[VIDEO_SHADER_MENU], &rsx->fp_offset[VIDEO_SHADER_MENU]);
+   rsx->proj_matrix[VIDEO_SHADER_MENU] = rsxVertexProgramGetConst(rsx->vpo[VIDEO_SHADER_MENU], "modelViewProj");
+   rsx->pos_index[VIDEO_SHADER_MENU] = rsxVertexProgramGetAttrib(rsx->vpo[VIDEO_SHADER_MENU], "position");
+   rsx->col_index[VIDEO_SHADER_MENU] = rsxVertexProgramGetAttrib(rsx->vpo[VIDEO_SHADER_MENU], "color");
+   rsx->uv_index[VIDEO_SHADER_MENU] = rsxVertexProgramGetAttrib(rsx->vpo[VIDEO_SHADER_MENU], "texcoord");
+   rsx->tex_unit[VIDEO_SHADER_MENU] = rsxFragmentProgramGetAttrib(rsx->fpo[VIDEO_SHADER_MENU], "texture");
 
-   rsx->proj_matrix = rsxVertexProgramGetConst(rsx->vpo, "modelViewProj");
-   rsx->pos_index = rsxVertexProgramGetAttrib(rsx->vpo, "position");
-   rsx->col_index = rsxVertexProgramGetAttrib(rsx->vpo, "color");
-   rsx->uv_index = rsxVertexProgramGetAttrib(rsx->vpo, "texcoord");
-   rsx->tex_unit = rsxFragmentProgramGetAttrib(rsx->fpo, "texture");
+   rsx->vp_ucode[VIDEO_SHADER_STOCK_BLEND] = NULL;
+   rsx->fp_ucode[VIDEO_SHADER_STOCK_BLEND] = NULL;
+   rsx->vpo[VIDEO_SHADER_STOCK_BLEND] = (rsxVertexProgram *)modern_alpha_blend_vpo;
+   rsx->fpo[VIDEO_SHADER_STOCK_BLEND] = (rsxFragmentProgram *)modern_alpha_blend_fpo;
+   rsxVertexProgramGetUCode(rsx->vpo[VIDEO_SHADER_STOCK_BLEND], &rsx->vp_ucode[VIDEO_SHADER_STOCK_BLEND], &vpsize);
+   rsxFragmentProgramGetUCode(rsx->fpo[VIDEO_SHADER_STOCK_BLEND], &rsx->fp_ucode[VIDEO_SHADER_STOCK_BLEND], &fpsize);
+   rsx->fp_buffer[VIDEO_SHADER_STOCK_BLEND] = (u32 *)rsxMemalign(64, fpsize);
+   if (!rsx->fp_buffer[VIDEO_SHADER_STOCK_BLEND])
+   {
+      RARCH_LOG("failed to allocate fp_buffer\n");
+      return;
+   }
+   memcpy(rsx->fp_buffer[VIDEO_SHADER_STOCK_BLEND], rsx->fp_ucode[VIDEO_SHADER_STOCK_BLEND], fpsize);
+   rsxAddressToOffset(rsx->fp_buffer[VIDEO_SHADER_STOCK_BLEND], &rsx->fp_offset[VIDEO_SHADER_STOCK_BLEND]);
+   rsx->proj_matrix[VIDEO_SHADER_STOCK_BLEND] = rsxVertexProgramGetConst(rsx->vpo[VIDEO_SHADER_STOCK_BLEND], "modelViewProj");
+   rsx->pos_index[VIDEO_SHADER_STOCK_BLEND] = rsxVertexProgramGetAttrib(rsx->vpo[VIDEO_SHADER_STOCK_BLEND], "position");
+   rsx->col_index[VIDEO_SHADER_STOCK_BLEND] = rsxVertexProgramGetAttrib(rsx->vpo[VIDEO_SHADER_STOCK_BLEND], "color");
+   rsx->uv_index[VIDEO_SHADER_STOCK_BLEND] = rsxVertexProgramGetAttrib(rsx->vpo[VIDEO_SHADER_STOCK_BLEND], "texcoord");
+   rsx->tex_unit[VIDEO_SHADER_STOCK_BLEND] = rsxFragmentProgramGetAttrib(rsx->fpo[VIDEO_SHADER_STOCK_BLEND], "texture");
+   rsx->bgcolor[VIDEO_SHADER_STOCK_BLEND] = rsxFragmentProgramGetConst(rsx->fpo[VIDEO_SHADER_STOCK_BLEND], "bgcolor");
 }
 
 static void* rsx_init(const video_info_t* video,
@@ -390,9 +411,6 @@ static void* rsx_init(const video_info_t* video,
 
    memset(rsx, 0, sizeof(rsx_t));
 
-   rsx->texture.data = NULL;
-   rsx->menu_texture.data = NULL;
-
    rsx->context = rsx_init_screen(rsx);
    const gfx_ctx_driver_t* ctx_driver = rsx_get_context(rsx);
 
@@ -403,29 +421,34 @@ static void* rsx_init(const video_info_t* video,
    rsx->ctx_driver = ctx_driver;
    rsx->video_info = *video;
 
-   for (i = 0; i < MAX_BUFFERS; i++)
+   for (i = 0; i < RSX_MAX_BUFFERS; i++)
    {
       rsx_make_buffer(&rsx->buffers[i], rsx->width, rsx->height, i);
       rsx_init_render_target(rsx, &rsx->buffers[i], i);
    }
 
 #if defined(HAVE_MENU_BUFFER)
-   for (i = 0; i < MAX_MENU_BUFFERS; i++)
+   for (i = 0; i < RSX_MAX_MENU_BUFFERS; i++)
    {
-      rsx_make_buffer(&rsx->menuBuffers[i], rsx->width, rsx->height, i+MAX_BUFFERS);
-      rsx_init_render_target(rsx, &rsx->menuBuffers[i], i+MAX_BUFFERS);
+      rsx_make_buffer(&rsx->menuBuffers[i], rsx->width, rsx->height, i+RSX_MAX_BUFFERS);
+      rsx_init_render_target(rsx, &rsx->menuBuffers[i], i+RSX_MAX_BUFFERS);
    }
 #endif
 
-   rsx->texture.height = rsx->height;
-   rsx->texture.width = rsx->width;
+   for (i = 0; i < RSX_MAX_TEXTURES; i++)
+   {
+      rsx->texture[i].data = NULL;
+      rsx->texture[i].height = rsx->height;
+      rsx->texture[i].width = rsx->width;
+   }
+   rsx->menu_texture.data = NULL;
    rsx->menu_texture.height = rsx->height;
    rsx->menu_texture.width = rsx->width;
 
    rsx_init_shader(rsx);
    rsx_init_vertices(rsx);
 
-   rsx_flip(rsx->context, MAX_BUFFERS - 1);
+   rsx_flip(rsx->context, RSX_MAX_BUFFERS - 1);
 
    rsx->vp.x = 0;
    rsx->vp.y = 0;
@@ -488,6 +511,101 @@ static void rsx_set_projection(rsx_t *rsx,
    MAT_ELEM_4X4(rot, 1, 0) = sine;
    MAT_ELEM_4X4(rot, 1, 1) = cosine;
    matrix_4x4_multiply(rsx->mvp, rot, rsx->mvp_no_rot);
+}
+
+static void rsx_update_viewport(rsx_t* rsx,
+      video_frame_info_t *video_info)
+{
+
+   unsigned temp_width                    = rsx->width;
+   unsigned temp_height                   = rsx->height;
+   int x                     = 0;
+   int y                     = 0;
+   float device_aspect       = ((float)temp_width) / temp_height;
+   float width               = temp_width;
+   float height              = temp_height;
+   settings_t *settings      = config_get_ptr();
+   bool video_scale_integer  = settings->bools.video_scale_integer;
+   unsigned aspect_ratio_idx = settings->uints.video_aspect_ratio_idx;
+
+   if (video_scale_integer)
+   {
+      video_viewport_get_scaled_integer(&rsx->vp, temp_width,
+            temp_height, video_driver_get_aspect_ratio(), rsx->keep_aspect);
+      width  = rsx->vp.width;
+      height = rsx->vp.height;
+   }
+   else if (rsx->keep_aspect)
+   {
+      float desired_aspect = video_driver_get_aspect_ratio();
+      if ( (rsx->rotation == ORIENTATION_VERTICAL) ||
+           (rsx->rotation == ORIENTATION_FLIPPED_ROTATED))
+      {
+         device_aspect = 1.0 / device_aspect;
+         width = temp_height;
+         height = temp_width;
+      }
+#if defined(HAVE_MENU)
+      if (aspect_ratio_idx == ASPECT_RATIO_CUSTOM)
+      {
+         x      = video_info->custom_vp_x;
+         y      = video_info->custom_vp_y;
+         width  = video_info->custom_vp_width;
+         height = video_info->custom_vp_height;
+      }
+      else
+#endif
+      {
+         float delta;
+
+         if ((fabsf(device_aspect - desired_aspect) < 0.0001f))
+         {
+            /* If the aspect ratios of screen and desired aspect
+             * ratio are sufficiently equal (floating point stuff),
+             * assume they are actually equal.
+             */
+         }
+         else if (device_aspect > desired_aspect)
+         {
+            delta = (desired_aspect / device_aspect - 1.0f)
+               / 2.0f + 0.5f;
+            x     = (int)roundf(width * (0.5f - delta));
+            width = (unsigned)roundf(2.0f * width * delta);
+         }
+         else
+         {
+            delta  = (device_aspect / desired_aspect - 1.0f)
+               / 2.0f + 0.5f;
+            y      = (int)roundf(height * (0.5f - delta));
+            height = (unsigned)roundf(2.0f * height * delta);
+         }
+
+         if ( (rsx->rotation == ORIENTATION_VERTICAL) ||
+              (rsx->rotation == ORIENTATION_FLIPPED_ROTATED)
+            )
+         {
+            x = (temp_width - width) * 0.5f;
+            y = (temp_height - height) * 0.5f;
+         }
+      }
+
+      rsx->vp.x      = x;
+      rsx->vp.y      = y;
+      rsx->vp.width  = width;
+      rsx->vp.height = height;
+   }
+   else
+   {
+      rsx->vp.x      = 0;
+      rsx->vp.y      = 0;
+      rsx->vp.width  = width;
+      rsx->vp.height = height;
+   }
+
+   rsx->vp.width      += rsx->vp.width&0x1;
+   rsx->vp.height     += rsx->vp.height&0x1;
+
+   rsx->should_resize  = false;
 }
 
 static void rsx_set_viewport(void *data, unsigned viewport_width,
@@ -628,8 +746,8 @@ static uintptr_t rsx_load_texture(void *video_data, void *data,
 
    texture->width = image->width;
    texture->height = image->height;
-   texture->data = (u32*)rsxMemalign(128, (image->height * image->width*4));
-	 rsxAddressToOffset(texture->data, &texture->offset);
+   texture->data = (u32 *)rsxMemalign(128, (image->height * image->width*4));
+   rsxAddressToOffset(texture->data, &texture->offset);
    rsx_load_texture_data(rsx, texture, image->pixels, image->width, image->height, image->width*4, true, false, filter_type);
 
    return (uintptr_t)texture;;
@@ -639,9 +757,13 @@ static void rsx_unload_texture(void *data,
       bool threaded, uintptr_t handle)
 {
    rsx_texture_t *texture = (rsx_texture_t *)handle;
-   if (texture) {
+   if (texture)
+   {
+#if 0
+      /* TODO fix crash on loading core */
       if(texture->data)
          rsxFree(texture->data);
+#endif
       free(texture);
    }
 }
@@ -789,11 +911,11 @@ static void rsx_load_texture_data(rsx_t* rsx, rsx_texture_t *texture,
    const u8 *data = (u8 *)frame;
    memcpy(texbuffer, data, height * pitch);
 
-	 texture->tex.format = (rgb32 ? GCM_TEXTURE_FORMAT_A8R8G8B8 :
-                           menu ? GCM_TEXTURE_FORMAT_A4R4G4B4 : GCM_TEXTURE_FORMAT_R5G6B5) | GCM_TEXTURE_FORMAT_LIN;
-	 texture->tex.mipmap = 1;
-	 texture->tex.dimension = GCM_TEXTURE_DIMS_2D;
-	 texture->tex.cubemap = GCM_FALSE;
+   texture->tex.format = (rgb32 ? GCM_TEXTURE_FORMAT_A8R8G8B8 :
+                          menu ? GCM_TEXTURE_FORMAT_A4R4G4B4 : GCM_TEXTURE_FORMAT_R5G6B5) | GCM_TEXTURE_FORMAT_LIN;
+   texture->tex.mipmap = 1;
+   texture->tex.dimension = GCM_TEXTURE_DIMS_2D;
+   texture->tex.cubemap = GCM_FALSE;
    texture->tex.remap = ((GCM_TEXTURE_REMAP_TYPE_REMAP << GCM_TEXTURE_REMAP_TYPE_B_SHIFT) |
                          (GCM_TEXTURE_REMAP_TYPE_REMAP << GCM_TEXTURE_REMAP_TYPE_G_SHIFT) |
                          (GCM_TEXTURE_REMAP_TYPE_REMAP << GCM_TEXTURE_REMAP_TYPE_R_SHIFT) |
@@ -832,10 +954,19 @@ static void rsx_load_texture_data(rsx_t* rsx, rsx_texture_t *texture,
 static void rsx_set_texture(rsx_t* rsx, rsx_texture_t *texture)
 {
    rsxInvalidateTextureCache(rsx->context, GCM_INVALIDATE_TEXTURE);
-   rsxLoadTexture(rsx->context, rsx->tex_unit->index, &texture->tex);
-   rsxTextureControl(rsx->context, rsx->tex_unit->index, GCM_TRUE, 0 << 8, 12 << 8, GCM_TEXTURE_MAX_ANISO_1);
-   rsxTextureFilter(rsx->context, rsx->tex_unit->index, 0, texture->min_filter, texture->mag_filter, GCM_TEXTURE_CONVOLUTION_QUINCUNX);
-   rsxTextureWrapMode(rsx->context, rsx->tex_unit->index, texture->wrap_s, texture->wrap_t, GCM_TEXTURE_CLAMP_TO_EDGE, 0, GCM_TEXTURE_ZFUNC_LESS, 0);
+   rsxLoadTexture(rsx->context, rsx->tex_unit[0]->index, &texture->tex);
+   rsxTextureControl(rsx->context, rsx->tex_unit[0]->index, GCM_TRUE, 0 << 8, 12 << 8, GCM_TEXTURE_MAX_ANISO_1);
+   rsxTextureFilter(rsx->context, rsx->tex_unit[0]->index, 0, texture->min_filter, texture->mag_filter, GCM_TEXTURE_CONVOLUTION_QUINCUNX);
+   rsxTextureWrapMode(rsx->context, rsx->tex_unit[0]->index, texture->wrap_s, texture->wrap_t, GCM_TEXTURE_CLAMP_TO_EDGE, 0, GCM_TEXTURE_ZFUNC_LESS, 0);
+}
+
+static void rsx_set_menu_texture(rsx_t* rsx, rsx_texture_t *texture)
+{
+   rsxInvalidateTextureCache(rsx->context, GCM_INVALIDATE_TEXTURE);
+   rsxLoadTexture(rsx->context, rsx->tex_unit[1]->index, &texture->tex);
+   rsxTextureControl(rsx->context, rsx->tex_unit[1]->index, GCM_TRUE, 0 << 8, 12 << 8, GCM_TEXTURE_MAX_ANISO_1);
+   rsxTextureFilter(rsx->context, rsx->tex_unit[1]->index, 0, texture->min_filter, texture->mag_filter, GCM_TEXTURE_CONVOLUTION_QUINCUNX);
+   rsxTextureWrapMode(rsx->context, rsx->tex_unit[1]->index, texture->wrap_s, texture->wrap_t, GCM_TEXTURE_CLAMP_TO_EDGE, 0, GCM_TEXTURE_ZFUNC_LESS, 0);
 }
 
 static void rsx_clear_surface(rsx_t* rsx)
@@ -870,33 +1001,62 @@ static void rsx_clear_surface(rsx_t* rsx)
 
 static void rsx_draw_vertices(rsx_t* rsx)
 {
-   if (rsx->should_resize)
-      rsx_set_viewport(rsx, rsx->width, rsx->height, false, true);
+   int end_vert_idx = rsx->vert_idx + 4;
+   if (end_vert_idx > RSX_MAX_VERTICES)
+   {
+      rsx->vert_idx = 0;
+      end_vert_idx = rsx->vert_idx + 4;
+   }
+   rsx_vertex_t *vertices = &rsx->vertices[rsx->vert_idx];
 
-   rsx->vertices[0].r = 1.0f;
-   rsx->vertices[0].g = 1.0f;
-   rsx->vertices[0].b = 1.0f;
-   rsx->vertices[0].a = 1.0f;
-   rsx->vertices[1].r = 1.0f;
-   rsx->vertices[1].g = 1.0f;
-   rsx->vertices[1].b = 1.0f;
-   rsx->vertices[1].a = 1.0f;
-   rsx->vertices[2].r = 1.0f;
-   rsx->vertices[2].g = 1.0f;
-   rsx->vertices[2].b = 1.0f;
-   rsx->vertices[2].a = 1.0f;
-   rsx->vertices[3].r = 1.0f;
-   rsx->vertices[3].g = 1.0f;
-   rsx->vertices[3].b = 1.0f;
-   rsx->vertices[3].a = 1.0f;
+   vertices[rsx->vert_idx+0].x = 0.0f;
+   vertices[rsx->vert_idx+0].y = 0.0f;
+   vertices[rsx->vert_idx+0].u = 0.0f;
+   vertices[rsx->vert_idx+0].v = 1.0f;
+   vertices[rsx->vert_idx+0].r = 1.0f;
+   vertices[rsx->vert_idx+0].g = 1.0f;
+   vertices[rsx->vert_idx+0].b = 1.0f;
+   vertices[rsx->vert_idx+0].a = 1.0f;
 
-   rsxBindVertexArrayAttrib(rsx->context, rsx->pos_index->index, 0, rsx->pos_offset, sizeof(rsx_vertex_t), 3, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
-   rsxBindVertexArrayAttrib(rsx->context, rsx->uv_index->index, 0, rsx->uv_offset, sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
-   rsxBindVertexArrayAttrib(rsx->context, rsx->col_index->index, 0, rsx->col_offset, sizeof(rsx_vertex_t), 4, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   vertices[rsx->vert_idx+1].x = 1.0f;
+   vertices[rsx->vert_idx+1].y = 0.0f;
+   vertices[rsx->vert_idx+1].u = 1.0f;
+   vertices[rsx->vert_idx+1].v = 1.0f;
+   vertices[rsx->vert_idx+1].r = 1.0f;
+   vertices[rsx->vert_idx+1].g = 1.0f;
+   vertices[rsx->vert_idx+1].b = 1.0f;
+   vertices[rsx->vert_idx+1].a = 1.0f;
 
-   rsxLoadVertexProgram(rsx->context, rsx->vpo, rsx->vp_ucode);
-   rsxSetVertexProgramParameter(rsx->context, rsx->vpo, rsx->proj_matrix, (float *)&rsx->mvp_no_rot);
-   rsxLoadFragmentProgramLocation(rsx->context, rsx->fpo, rsx->fp_offset, GCM_LOCATION_RSX);
+   vertices[rsx->vert_idx+2].x = 0.0f;
+   vertices[rsx->vert_idx+2].y = 1.0f;
+   vertices[rsx->vert_idx+2].u = 0.0f;
+   vertices[rsx->vert_idx+2].v = 0.0f;
+   vertices[rsx->vert_idx+2].r = 1.0f;
+   vertices[rsx->vert_idx+2].g = 1.0f;
+   vertices[rsx->vert_idx+2].b = 1.0f;
+   vertices[rsx->vert_idx+2].a = 1.0f;
+
+   vertices[rsx->vert_idx+3].x = 1.0f;
+   vertices[rsx->vert_idx+3].y = 1.0f;
+   vertices[rsx->vert_idx+3].u = 1.0f;
+   vertices[rsx->vert_idx+3].v = 0.0f;
+   vertices[rsx->vert_idx+3].r = 1.0f;
+   vertices[rsx->vert_idx+3].g = 1.0f;
+   vertices[rsx->vert_idx+3].b = 1.0f;
+   vertices[rsx->vert_idx+3].a = 1.0f;
+
+   rsxAddressToOffset(&vertices[rsx->vert_idx].x, &rsx->pos_offset[VIDEO_SHADER_MENU]);
+   rsxAddressToOffset(&vertices[rsx->vert_idx].u, &rsx->uv_offset[VIDEO_SHADER_MENU]);
+   rsxAddressToOffset(&vertices[rsx->vert_idx].r, &rsx->col_offset[VIDEO_SHADER_MENU]);
+   rsx->vert_idx = end_vert_idx;
+
+   rsxBindVertexArrayAttrib(rsx->context, rsx->pos_index[VIDEO_SHADER_MENU]->index, 0, rsx->pos_offset[VIDEO_SHADER_MENU], sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   rsxBindVertexArrayAttrib(rsx->context, rsx->uv_index[VIDEO_SHADER_MENU]->index, 0, rsx->uv_offset[VIDEO_SHADER_MENU], sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   rsxBindVertexArrayAttrib(rsx->context, rsx->col_index[VIDEO_SHADER_MENU]->index, 0, rsx->col_offset[VIDEO_SHADER_MENU], sizeof(rsx_vertex_t), 4, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+
+   rsxLoadVertexProgram(rsx->context, rsx->vpo[VIDEO_SHADER_MENU], rsx->vp_ucode[VIDEO_SHADER_MENU]);
+   rsxSetVertexProgramParameter(rsx->context, rsx->vpo[VIDEO_SHADER_MENU], rsx->proj_matrix[VIDEO_SHADER_MENU], (float *)&rsx->mvp_no_rot);
+   rsxLoadFragmentProgramLocation(rsx->context, rsx->fpo[VIDEO_SHADER_MENU], rsx->fp_offset[VIDEO_SHADER_MENU], GCM_LOCATION_RSX);
 
    rsxClearSurface(rsx->context, GCM_CLEAR_Z);
    rsxDrawVertexArray(rsx->context, GCM_TYPE_TRIANGLE_STRIP, 0, 4);
@@ -905,33 +1065,62 @@ static void rsx_draw_vertices(rsx_t* rsx)
 #if defined(HAVE_MENU)
 static void rsx_draw_menu_vertices(rsx_t* rsx)
 {
-   if (rsx->should_resize)
-      rsx_set_viewport(rsx, rsx->width, rsx->height, false, true);
+   int end_vert_idx = rsx->vert_idx + 4;
+   if (end_vert_idx > RSX_MAX_VERTICES)
+   {
+      rsx->vert_idx = 0;
+      end_vert_idx = rsx->vert_idx + 4;
+   }
+   rsx_vertex_t *vertices = &rsx->vertices[rsx->vert_idx];
 
-   rsx->vertices[0].r = 1.0f;
-   rsx->vertices[0].g = 1.0f;
-   rsx->vertices[0].b = 1.0f;
-   rsx->vertices[0].a = rsx->menu_texture_alpha;
-   rsx->vertices[1].r = 1.0f;
-   rsx->vertices[1].g = 1.0f;
-   rsx->vertices[1].b = 1.0f;
-   rsx->vertices[1].a = rsx->menu_texture_alpha;
-   rsx->vertices[2].r = 1.0f;
-   rsx->vertices[2].g = 1.0f;
-   rsx->vertices[2].b = 1.0f;
-   rsx->vertices[2].a = rsx->menu_texture_alpha;
-   rsx->vertices[3].r = 1.0f;
-   rsx->vertices[3].g = 1.0f;
-   rsx->vertices[3].b = 1.0f;
-   rsx->vertices[3].a = rsx->menu_texture_alpha;
+   vertices[rsx->vert_idx+0].x = 0.0f;
+   vertices[rsx->vert_idx+0].y = 0.0f;
+   vertices[rsx->vert_idx+0].u = 0.0f;
+   vertices[rsx->vert_idx+0].v = 1.0f;
+   vertices[rsx->vert_idx+0].r = 1.0f;
+   vertices[rsx->vert_idx+0].g = 1.0f;
+   vertices[rsx->vert_idx+0].b = 1.0f;
+   vertices[rsx->vert_idx+0].a = rsx->menu_texture_alpha;
 
-   rsxBindVertexArrayAttrib(rsx->context, rsx->pos_index->index, 0, rsx->pos_offset, sizeof(rsx_vertex_t), 3, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
-   rsxBindVertexArrayAttrib(rsx->context, rsx->uv_index->index, 0, rsx->uv_offset, sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
-   rsxBindVertexArrayAttrib(rsx->context, rsx->col_index->index, 0, rsx->col_offset, sizeof(rsx_vertex_t), 4, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   vertices[rsx->vert_idx+1].x = 1.0f;
+   vertices[rsx->vert_idx+1].y = 0.0f;
+   vertices[rsx->vert_idx+1].u = 1.0f;
+   vertices[rsx->vert_idx+1].v = 1.0f;
+   vertices[rsx->vert_idx+1].r = 1.0f;
+   vertices[rsx->vert_idx+1].g = 1.0f;
+   vertices[rsx->vert_idx+1].b = 1.0f;
+   vertices[rsx->vert_idx+1].a = rsx->menu_texture_alpha;
 
-   rsxLoadVertexProgram(rsx->context, rsx->vpo, rsx->vp_ucode);
-   rsxSetVertexProgramParameter(rsx->context, rsx->vpo, rsx->proj_matrix, (float *)&rsx->mvp_no_rot);
-   rsxLoadFragmentProgramLocation(rsx->context, rsx->fpo, rsx->fp_offset, GCM_LOCATION_RSX);
+   vertices[rsx->vert_idx+2].x = 0.0f;
+   vertices[rsx->vert_idx+2].y = 1.0f;
+   vertices[rsx->vert_idx+2].u = 0.0f;
+   vertices[rsx->vert_idx+2].v = 0.0f;
+   vertices[rsx->vert_idx+2].r = 1.0f;
+   vertices[rsx->vert_idx+2].g = 1.0f;
+   vertices[rsx->vert_idx+2].b = 1.0f;
+   vertices[rsx->vert_idx+2].a = rsx->menu_texture_alpha;
+
+   vertices[rsx->vert_idx+3].x = 1.0f;
+   vertices[rsx->vert_idx+3].y = 1.0f;
+   vertices[rsx->vert_idx+3].u = 1.0f;
+   vertices[rsx->vert_idx+3].v = 0.0f;
+   vertices[rsx->vert_idx+3].r = 1.0f;
+   vertices[rsx->vert_idx+3].g = 1.0f;
+   vertices[rsx->vert_idx+3].b = 1.0f;
+   vertices[rsx->vert_idx+3].a = rsx->menu_texture_alpha;
+
+   rsxAddressToOffset(&vertices[rsx->vert_idx].x, &rsx->pos_offset[VIDEO_SHADER_STOCK_BLEND]);
+   rsxAddressToOffset(&vertices[rsx->vert_idx].u, &rsx->uv_offset[VIDEO_SHADER_STOCK_BLEND]);
+   rsxAddressToOffset(&vertices[rsx->vert_idx].r, &rsx->col_offset[VIDEO_SHADER_STOCK_BLEND]);
+   rsx->vert_idx = end_vert_idx;
+
+   rsxBindVertexArrayAttrib(rsx->context, rsx->pos_index[VIDEO_SHADER_STOCK_BLEND]->index, 0, rsx->pos_offset[VIDEO_SHADER_STOCK_BLEND], sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   rsxBindVertexArrayAttrib(rsx->context, rsx->uv_index[VIDEO_SHADER_STOCK_BLEND]->index, 0, rsx->uv_offset[VIDEO_SHADER_STOCK_BLEND], sizeof(rsx_vertex_t), 2, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+   rsxBindVertexArrayAttrib(rsx->context, rsx->col_index[VIDEO_SHADER_STOCK_BLEND]->index, 0, rsx->col_offset[VIDEO_SHADER_STOCK_BLEND], sizeof(rsx_vertex_t), 4, GCM_VERTEX_DATA_TYPE_F32, GCM_LOCATION_RSX);
+
+   rsxLoadVertexProgram(rsx->context, rsx->vpo[VIDEO_SHADER_STOCK_BLEND], rsx->vp_ucode[VIDEO_SHADER_STOCK_BLEND]);
+   rsxSetVertexProgramParameter(rsx->context, rsx->vpo[VIDEO_SHADER_STOCK_BLEND], rsx->proj_matrix[VIDEO_SHADER_STOCK_BLEND], (float *)&rsx->mvp_no_rot);
+   rsxLoadFragmentProgramLocation(rsx->context, rsx->fpo[VIDEO_SHADER_STOCK_BLEND], rsx->fp_offset[VIDEO_SHADER_STOCK_BLEND], GCM_LOCATION_RSX);
 
    rsxSetBlendEnable(rsx->context, GCM_TRUE);
    rsxSetBlendFunc(rsx->context, GCM_SRC_ALPHA, GCM_ONE_MINUS_SRC_ALPHA, GCM_SRC_ALPHA, GCM_ONE_MINUS_SRC_ALPHA);
@@ -951,16 +1140,16 @@ static void rsx_update_screen(rsx_t* gcm)
 #if defined(HAVE_MENU_BUFFER)
    if (gcm->menu_frame_enable) {
       buffer = &gcm->menuBuffers[gcm->menuBuffer];
-      gcm->menuBuffer = (gcm->menuBuffer+1)%MAX_MENU_BUFFERS;
-      gcm->nextBuffer = MAX_BUFFERS + gcm->menuBuffer;
+      gcm->menuBuffer = (gcm->menuBuffer+1)%RSX_MAX_MENU_BUFFERS;
+      gcm->nextBuffer = RSX_MAX_BUFFERS + gcm->menuBuffer;
    } else {
       buffer = &gcm->buffers[gcm->currentBuffer];
-      gcm->currentBuffer = (gcm->currentBuffer+1)%MAX_BUFFERS;
+      gcm->currentBuffer = (gcm->currentBuffer+1)%RSX_MAX_BUFFERS;
       gcm->nextBuffer = gcm->currentBuffer;
    }
 #else
    buffer = &gcm->buffers[gcm->currentBuffer];
-   gcm->currentBuffer = (gcm->currentBuffer+1)%MAX_BUFFERS;
+   gcm->currentBuffer = (gcm->currentBuffer+1)%RSX_MAX_BUFFERS;
    gcm->nextBuffer = gcm->currentBuffer;
 #endif
 
@@ -989,13 +1178,36 @@ static bool rsx_frame(void* data, const void* frame,
 #ifdef HAVE_GFX_WIDGETS
    bool widgets_active              = video_info->widgets_active;
 #endif
+   bool draw = false;
+
+   if (gcm->should_resize)
+      rsx_update_viewport(gcm, video_info);
+
+   rsx_viewport_t vp;
+   vp.min = 0.0f;
+   vp.max = 1.0f;
+   vp.x = gcm->vp.x;
+   vp.y = gcm->height - gcm->vp.y - gcm->vp.height;
+   vp.w = gcm->vp.width;
+   vp.h = gcm->vp.height;
+   vp.scale[0] = vp.w*0.5f;
+   vp.scale[1] = vp.h*-0.5f;
+   vp.scale[2] = (vp.max - vp.min)*0.5f;
+   vp.scale[3] = 0.0f;
+   vp.offset[0] = vp.x + vp.w*0.5f;
+   vp.offset[1] = vp.y + vp.h*0.5f;
+   vp.offset[2] = (vp.max + vp.min)*0.5f;
+   vp.offset[3] = 0.0f;
+   rsxSetViewport(gcm->context, vp.x, vp.y, vp.w, vp.h, vp.min, vp.max, vp.scale, vp.offset);
 
    if(frame && width && height)
    {
-      rsx_load_texture_data(gcm, &gcm->texture, frame, width, height, pitch, gcm->rgb32, false,
+      gcm->tex_index = ((gcm->tex_index + 1) % RSX_MAX_TEXTURES);
+      rsx_load_texture_data(gcm, &gcm->texture[gcm->tex_index], frame, width, height, pitch, gcm->rgb32, false,
                             gcm->smooth ? TEXTURE_FILTER_LINEAR : TEXTURE_FILTER_NEAREST);
-      rsx_set_texture(gcm, &gcm->texture);
+      rsx_set_texture(gcm, &gcm->texture[gcm->tex_index]);
       rsx_draw_vertices(gcm);
+      draw = true;
    }
 
 #ifdef HAVE_MENU
@@ -1004,8 +1216,9 @@ static bool rsx_frame(void* data, const void* frame,
       menu_driver_frame(menu_is_alive, video_info);
       if (gcm->menu_texture.data)
       {
-         rsx_set_texture(gcm, &gcm->menu_texture);
+         rsx_set_menu_texture(gcm, &gcm->menu_texture);
          rsx_draw_menu_vertices(gcm);
+         draw = true;
       }
    };
 
@@ -1027,8 +1240,15 @@ static bool rsx_frame(void* data, const void* frame,
 #if 0
    /* TODO: translucid menu */
 #endif
-   rsx_update_screen(gcm);
-   rsx_clear_surface(gcm);
+   if (draw)
+   {
+      // Only update when we draw to prevent flickering when core frame duping is enabled
+      rsx_update_screen(gcm);
+      rsx_clear_surface(gcm);
+   }
+   gcm->vert_idx = 0;
+   gcm->texture_vert_idx = 0;
+   gcm->font_vert_idx = 0;
 
    return true;
 }
@@ -1071,23 +1291,30 @@ static void rsx_free(void* data)
 
    rsxClearSurface(gcm->context, GCM_CLEAR_Z);
    gcmSetWaitFlip(gcm->context);
-   for (i = 0; i < MAX_BUFFERS; i++)
-     rsxFree(gcm->buffers[i].ptr);
-#if defined(HAVE_MENU_BUFFER)
-   for (i = 0; i < MAX_MENU_BUFFERS; i++)
-     rsxFree(gcm->menuBuffers[i].ptr);
-#endif
-
+#if 0
+   /* TODO fix crash on loading core */
    if (gcm->vertices)
       rsxFree(gcm->vertices);
-   if (gcm->texture.data)
-     rsxFree(gcm->texture.data);
+   if (gcm->texture_vertices)
+      rsxFree(gcm->texture_vertices);
+   for (i = 0; i < RSX_MAX_TEXTURES; i++)
+   {
+      if (gcm->texture[i].data)
+         rsxFree(gcm->texture[i].data);
+   }
    if (gcm->menu_texture.data)
      rsxFree(gcm->menu_texture.data);
+   for (i = 0; i < RSX_MAX_BUFFERS; i++)
+     rsxFree(gcm->buffers[i].ptr);
+#if defined(HAVE_MENU_BUFFER)
+   for (i = 0; i < RSX_MAX_MENU_BUFFERS; i++)
+     rsxFree(gcm->menuBuffers[i].ptr);
+#endif
    if (gcm->depth_buffer)
      rsxFree(gcm->depth_buffer);
    if (gcm->fp_buffer)
      rsxFree(gcm->fp_buffer);
+#endif
 
 #if 0
    rsxFinish(gcm->context, 1);
