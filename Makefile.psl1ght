@@ -195,6 +195,7 @@ clean:
 	$(Q)rm -f $(ELF_TARGET)
 	$(Q)rm -f $(OBJ)
 	$(Q)rm -f $(SHADER_HDRS)
+	$(Q)rm -f $(GLSL_SHADER_POS)
 	$(Q)rm -f $(GLSL_SHADER_ASMS)
 
 .PHONY: clean
