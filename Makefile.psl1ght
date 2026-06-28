@@ -60,10 +60,30 @@ else
 GIT			= git.exe
 endif
 
-SHADER_OBJS = gfx/drivers/rsx_shaders/modern_opaque.vpo.o \
+#SHADER_OBJS = gfx/drivers/rsx_shaders/modern_opaque.vpo.o \
               gfx/drivers/rsx_shaders/modern_opaque.fpo.o \
               gfx/drivers/rsx_shaders/modern_alpha_blend.vpo.o \
               gfx/drivers/rsx_shaders/modern_alpha_blend.fpo.o
+
+SHADER_DIR = gfx/drivers/rsx_shaders
+
+CG_VSHADERS = $(wildcard $(SHADER_DIR)/*.vcg)
+CG_FSHADERS = $(wildcard $(SHADER_DIR)/*.fcg)
+CG_SHADER_OBJS = $(CG_VSHADERS:.vcg=.vpo.o) $(CG_FSHADERS:.fcg=.fpo.o)
+_CG_SHADER_HDRS = $(CG_VSHADERS:.vcg=_vpo.h) $(CG_FSHADERS:.fcg=_fpo.h)
+CG_SHADER_HDRS = $(patsubst $(SHADER_DIR)/%.h, ./%.h, $(_CG_SHADER_HDRS))
+
+GLSL_VSHADERS = $(wildcard $(SHADER_DIR)/*.vert)
+GLSL_FSHADERS = $(wildcard $(SHADER_DIR)/*.frag)
+GLSL_SHADER_POS = $(GLSL_VSHADERS:.vert=.vpo) $(GLSL_FSHADERS:.frag=.fpo)
+GLSL_SHADER_OBJS = $(GLSL_VSHADERS:.vert=.vpo.o) $(GLSL_FSHADERS:.frag=.fpo.o)
+_GLSL_SHADER_HDRS = $(GLSL_VSHADERS:.vert=_vpo.h) $(GLSL_FSHADERS:.frag=_fpo.h)
+GLSL_SHADER_HDRS = $(patsubst $(SHADER_DIR)/%.h, ./%.h, $(_GLSL_SHADER_HDRS))
+_GLSL_SHADER_ASMS = $(GLSL_VSHADERS:.vert=.vert.asm) $(GLSL_FSHADERS:.frag=.frag.asm)
+GLSL_SHADER_ASMS = $(patsubst $(SHADER_DIR)/%.asm, ./%.asm, $(_GLSL_SHADER_ASMS))
+
+SHADER_OBJS = $(CG_SHADER_OBJS) $(GLSL_SHADER_OBJS)
+SHADER_HDRS =  $(CG_SHADER_HDRS) $(GLSL_SHADER_HDRS)
 
 LIBCO_OBJ = libretro-common/libco/ps3.o
 
@@ -146,9 +166,21 @@ ifneq ($(V),1)
 	@echo "$$INFO"
 endif
 
-$(ELF_TARGET): $(OBJ)
+$(ELF_TARGET): $(GLSL_SHADER_POS) $(OBJ)
 	@$(if $(Q), $(shell echo echo CXX $<),)
 	$(Q)$(CXX) -o $@ $(LDFLAGS) $(LIBDIRS) $(OBJ) $(LIBS)
+
+%.fpo: %.frag
+	@echo $(BUILD)
+#	cgc -oglsl -profile fp40 $(SHADER_DIR)/$(notdir $<) | nv40asm -v > $@
+	cgc -oglsl -profile fp40 $(SHADER_DIR)/$(notdir $<) -o $(notdir $<).asm
+	cgcomp -f -a $(notdir $<).asm $@
+
+%.vpo: %.vert
+	@echo $(BUILD)
+#	cgc -oglsl -profile vp40 $(SHADER_DIR)/$(notdir $<) | nv40asm -v > $@
+	cgc -oglsl -profile vp40 $(SHADER_DIR)/$(notdir $<) -o $(notdir $<).asm
+	cgcomp -v -a $(notdir $<).asm $@
 
 create-core: $(SELF_TARGET)
 	cp $(SELF_TARGET) $(CORE_PATH)
@@ -162,5 +194,7 @@ clean:
 	@$(if $(Q), echo $@,)
 	$(Q)rm -f $(ELF_TARGET)
 	$(Q)rm -f $(OBJ)
+	$(Q)rm -f $(SHADER_HDRS)
+	$(Q)rm -f $(GLSL_SHADER_ASMS)
 
 .PHONY: clean
