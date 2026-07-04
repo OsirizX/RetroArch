@@ -201,6 +201,6 @@ clean:
 	@$(if $(Q), echo $@,)
 	$(Q)rm -f $(ELF_TARGET)
 	$(Q)rm -f $(OBJ)
-	$(Q)rm -f $(SHADER_HDRFILES) $(SHADER_ASMFILES)
+	$(Q)rm -f $(SHADER_HDRFILES) $(SHADER_ASMFILES) $(addprefix $(SHADER_DIR)/,$(SHADER_VPOFILES)) $(addprefix $(SHADER_DIR)/,$(SHADER_FPOFILES))
 
 .PHONY: clean
